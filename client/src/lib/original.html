@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Central El Morro – Reporte Post Operativo (v6)</title>
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="styles_v6_facturacion_factorContrato_IDOM.css" />
+
+  <!-- Librería para leer Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Librería html2pdf (incluye html2canvas y jsPDF internamente) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="header-main">
+    <h1>Central El Morro – Reporte Post Operativo (v6)</h1>
+    <p>Generación diaria y mensual</p>
+  </div>
+</header>
+
+<main>
+  <!-- Panel de entrada -->
+  <section class="card card-inputs">
+    <h2>Parámetros de entrada</h2>
+
+    <label for="fecha">Fecha del informe diario</label>
+    <input type="date" id="fecha" />
+
+    <label for="mesMensual">Mes del informe mensual (AAAA-MM)</label>
+    <input type="month" id="mesMensual" />
+
+    <label for="diasFallaU1">Días indisponibles por falla – Unidad 1 (mes seleccionado)</label>
+    <input type="number" id="diasFallaU1" min="0" step="1" value="0" />
+
+    <label for="diasFallaU2">Días indisponibles por falla – Unidad 2 (mes seleccionado)</label>
+    <input type="number" id="diasFallaU2" min="0" step="1" value="0" />
+
+    <label for="fileProd">Archivo de producción (2Producción Morro &lt;mes&gt; 2025 GEN.xlsx)</label>
+    <input type="file" id="fileProd" accept=".xlsx,.xls" />
+
+    <label for="fileAforo">Archivo de aforo de tanques (1Aforo de tanques (002).xlsx)</label>
+    <input type="file" id="fileAforo" accept=".xlsx,.xls" />
+
+    <label for="obsInput">Observaciones operativas (para el informe diario)</label>
+    <textarea id="obsInput" placeholder="Ingresa aquí las novedades operativas del día..."></textarea>
+
+    <p class="small">
+      • Los valores negativos del archivo de producción se ignoran en los cálculos (se consideran como 0).<br />
+      • El informe mensual se genera para el mes seleccionado en el campo "Mes del informe mensual".<br />
+      • La facturación usa el mes seleccionado y los días indisponibles ingresados (U1/U2) para calcular disponibilidad.
+    </p>
+
+    <div id="msg"></div>
+
+    <div class="actions">
+      <button type="button" class="btn-primary" onclick="generarInformeDiario()">Informe diario</button>
+      <button type="button" class="btn-secondary" onclick="generarInformeMensual()">Informe mensual</button>
+      <button type="button" class="btn-secondary" onclick="generarInformeFacturacion()">Informe facturación</button>
+      <button type="button" class="btn-secondary" onclick="generarPDF()">Generar PDF</button>
+    </div>
+  </section>
+
+  <!-- Panel de salida -->
+  <section class="card card-output">
+    <h2>Informe generado</h2>
+    <p class="muted">
+      El informe generado se muestra a continuación. Puedes copiarlo a Word o generar el PDF directamente.
+    </p>
+    <div id="output"></div>
+  </section>
+</main>
+
+<!-- Lógica principal -->
+<script src="app_v6_facturacion_factorContrato_IDOM.js"></script>
+</body>
+</html>
