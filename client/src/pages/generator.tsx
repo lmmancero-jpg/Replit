@@ -3,7 +3,8 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { FileDown, Save, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings } from "lucide-react";
+import { FileDown, Save, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
+import { useFileStore } from "@/lib/fileStore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,11 +33,10 @@ type GeneratorValues = z.infer<typeof generatorSchema>;
 export default function Generator() {
   const { toast } = useToast();
   const createReport = useCreateReport();
+  const { prodFile, aforoFile, fileNameProd, fileNameAforo, setProdEntry, setAforoEntry } = useFileStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
   const [currentReportType, setCurrentReportType] = useState<string>("");
-  const [prodFile, setProdFile] = useState<File | null>(null);
-  const [aforoFile, setAforoFile] = useState<File | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<GeneratorValues>({
@@ -237,10 +237,12 @@ export default function Generator() {
                         type="file"
                         accept=".xlsx,.xls"
                         className="text-xs h-8 cursor-pointer"
-                        onChange={(e) => setProdFile(e.target.files?.[0] || null)}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setProdEntry(f); }}
                       />
-                      {prodFile && (
-                        <p className="text-xs text-green-600 truncate">{prodFile.name}</p>
+                      {fileNameProd && (
+                        <p className="text-xs text-green-600 truncate flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" /> {fileNameProd}
+                        </p>
                       )}
                     </div>
                     <div className="space-y-1">
@@ -253,12 +255,19 @@ export default function Generator() {
                         type="file"
                         accept=".xlsx,.xls"
                         className="text-xs h-8 cursor-pointer"
-                        onChange={(e) => setAforoFile(e.target.files?.[0] || null)}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setAforoEntry(f); }}
                       />
-                      {aforoFile && (
-                        <p className="text-xs text-blue-600 truncate">{aforoFile.name}</p>
+                      {fileNameAforo && (
+                        <p className="text-xs text-blue-600 truncate flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 shrink-0" /> {fileNameAforo}
+                        </p>
                       )}
                     </div>
+                    {(fileNameProd || fileNameAforo) && (
+                      <p className="text-xs text-muted-foreground border-t border-border/40 pt-2 mt-1">
+                        Los archivos cargados aquí también están disponibles en Métricas.
+                      </p>
+                    )}
                   </div>
 
                   <FormField
