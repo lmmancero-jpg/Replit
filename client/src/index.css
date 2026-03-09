@@ -304,6 +304,7 @@
   font-size: 9px;
   color: #1b3b6f;
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 .report-content .data-table td {
@@ -311,6 +312,7 @@
   padding: 3px 7px;
   text-align: right;
   color: #1f2d3d;
+  vertical-align: middle;
 }
 
 .report-content .data-table tbody tr:nth-child(even) {
