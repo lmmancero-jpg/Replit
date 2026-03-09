@@ -141,7 +141,7 @@ export default function Generator() {
           useCORS: true,
           allowTaint: true,
           letterRendering: true,
-          windowWidth: 1050,
+          windowWidth: 1250,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"] },

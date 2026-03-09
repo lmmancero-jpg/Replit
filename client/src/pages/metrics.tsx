@@ -224,13 +224,13 @@ function PdfPrintContent({ data }: { data: ProcessedData }) {
     </div>
   );
 
-  const chartStyle = { position: "relative" as const, height: 230, marginTop: 4 };
+  const chartStyle = { position: "relative" as const, height: 155, marginTop: 4 };
 
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", background: "#fff", padding: "0 24px 24px", width: "100%" }}>
 
       {/* ── SECCIÓN PRODUCCIÓN ────────────────────────────────────────── */}
-      <div style={{ paddingTop: 24 }}>
+      <div data-pdf-section="produccion" style={{ paddingTop: 24 }}>
         {/* Cabecera */}
         <div style={{ background: "linear-gradient(90deg,#0f172a,#1e3a5f)", borderRadius: 12, padding: "14px 20px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
@@ -288,28 +288,10 @@ function PdfPrintContent({ data }: { data: ProcessedData }) {
           ))}
         </div>
 
-        {/* Tanques combinados si hay aforo */}
-        {aforo && (
-          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>Niveles de Tanques (gal · 00H00)</div>
-            <div style={{ position: "relative", height: 220, marginTop: 4 }}>
-              <Line data={{ labels: aforo.labels, datasets: [
-                lineDataset("T601 HFO", aforo.t601, 0),
-                lineDataset("T602 HFO", aforo.t602, 1),
-                lineDataset("T610 Diesel", aforo.t610, 2),
-                lineDataset("T611 Diesel", aforo.t611, 3),
-                lineDataset("Cisterna 2", aforo.cisterna2, 4),
-              ]}} options={lineOpts("gal")} />
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* ── SALTO DE PÁGINA ───────────────────────────────────────────── */}
-      <div className="pdf-page-break" style={{ breakBefore: "page", pageBreakBefore: "always", height: 1 }} />
-
       {/* ── SECCIÓN COMBUSTIBLE ───────────────────────────────────────── */}
-      <div style={{ paddingTop: 24 }}>
+      <div data-pdf-section="combustible" style={{ paddingTop: 24 }}>
         {/* Cabecera */}
         <div style={{ background: "linear-gradient(90deg,#0f172a,#292524)", borderRadius: 12, padding: "14px 20px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
@@ -448,58 +430,61 @@ export default function Metrics() {
     await new Promise(r => setTimeout(r, 3000));
 
     try {
-      // Usamos html2canvas + jsPDF directamente para evitar que html2pdf
-      // clone el DOM (los canvas de Chart.js quedan en blanco al clonarse)
+      // html2canvas + jsPDF directamente: sin clonar DOM → canvas de Chart.js se preserva.
+      // Cada sección [data-pdf-section] se captura individualmente → sin cortes en gráficos.
       const html2canvas = (await import("html2canvas")).default;
       const { jsPDF }   = await import("jspdf");
 
       if (!printRef.current) return;
-      const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
-
-      const canvas = await html2canvas(printRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        width: 1122,
-        windowWidth: 1122,
-      });
+      const period  = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
+      const sections = Array.from(
+        printRef.current.querySelectorAll<HTMLElement>("[data-pdf-section]")
+      );
 
       // A4 landscape: 297 × 210 mm
-      const pdfW   = 297;
-      const pdfH   = 210;
-      const margin = 6;
-      const contentW = pdfW - margin * 2;  // mm
-      const contentH = pdfH - margin * 2;  // mm
-
-      // Altura del canvas (en px, unscaled) que cabe en una página
-      const imgW          = canvas.width;   // px (scale×1122)
-      const imgH          = canvas.height;  // px total
-      const pxPerMmW      = imgW / contentW;
-      const pageHeightPx  = contentH * pxPerMmW;  // px por página de contenido
+      const pdfW     = 297;
+      const pdfH     = 210;
+      const margin   = 6;
+      const contentW = pdfW - margin * 2;
+      const contentH = pdfH - margin * 2;
 
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+      let firstPage = true;
 
-      let yPx = 0;  // píxel superior del trozo actual
-      let pageIndex = 0;
+      for (const section of sections) {
+        // Capturar la sección como canvas a alta resolución
+        const canvas = await html2canvas(section, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          width: 1122,
+          windowWidth: 1122,
+          backgroundColor: "#ffffff",
+        });
 
-      while (yPx < imgH) {
-        if (pageIndex > 0) pdf.addPage();
+        const imgW        = canvas.width;
+        const imgH        = canvas.height;
+        const pxPerMmW    = imgW / contentW;
+        const pageHeightPx = contentH * pxPerMmW;
 
-        const sliceH   = Math.min(pageHeightPx, imgH - yPx);
-        const sliceMmH = sliceH / pxPerMmW;
+        let yPx = 0;
+        while (yPx < imgH) {
+          if (!firstPage) pdf.addPage();
+          firstPage = false;
 
-        // Recortar sólo la franja correspondiente a esta página
-        const slice    = document.createElement("canvas");
-        slice.width    = imgW;
-        slice.height   = Math.ceil(sliceH);
-        const ctx      = slice.getContext("2d")!;
-        ctx.drawImage(canvas, 0, yPx, imgW, Math.ceil(sliceH), 0, 0, imgW, Math.ceil(sliceH));
+          const sliceH   = Math.min(pageHeightPx, imgH - yPx);
+          const sliceMmH = sliceH / pxPerMmW;
 
-        pdf.addImage(slice.toDataURL("image/png"), "PNG", margin, margin, contentW, sliceMmH);
+          const slice = document.createElement("canvas");
+          slice.width  = imgW;
+          slice.height = Math.ceil(sliceH);
+          const ctx = slice.getContext("2d")!;
+          ctx.drawImage(canvas, 0, yPx, imgW, Math.ceil(sliceH), 0, 0, imgW, Math.ceil(sliceH));
 
-        yPx += pageHeightPx;
-        pageIndex++;
+          pdf.addImage(slice.toDataURL("image/png"), "PNG", margin, margin, contentW, sliceMmH);
+          yPx += pageHeightPx;
+        }
       }
 
       pdf.save(`Metricas_ElMorro_${period}.pdf`);

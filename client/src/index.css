@@ -252,26 +252,32 @@
 .report-content .rpt-section-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 18px 0 7px;
-  font-size: 11.5px;
+  gap: 7px;
+  margin: 13px 0 5px;
+  font-size: 9.5px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-left: 3px solid #1260a8;
-  padding-left: 9px;
+  padding: 3px 0 3px 8px;
+  line-height: 1;
 }
 
 .report-content .rpt-section-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
   background: #1260a8;
   color: #fff;
-  font-size: 10px;
+  font-size: 8.5px;
   font-weight: 700;
-  border-radius: 4px;
-  padding: 1px 5px;
-  line-height: 1.5;
+  border-radius: 3px;
   flex-shrink: 0;
+  line-height: 1;
+  padding: 0 4px;
 }
 
 /* ── TABLAS ─────────────────────────────── */
@@ -279,8 +285,8 @@
 .report-content .data-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 4px 0 12px;
-  font-size: 12px;
+  margin: 3px 0 9px;
+  font-size: 10px;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(27,59,111,0.07);
@@ -292,17 +298,17 @@
 
 .report-content .data-table th {
   border: 1px solid #c8d6ee;
-  padding: 6px 9px;
+  padding: 4px 7px;
   text-align: left;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 9px;
   color: #1b3b6f;
   white-space: nowrap;
 }
 
 .report-content .data-table td {
   border: 1px solid #e5ecf8;
-  padding: 5px 9px;
+  padding: 3px 7px;
   text-align: right;
   color: #1f2d3d;
 }
@@ -371,59 +377,59 @@
 
 .report-content .rpt-kpi-row {
   display: flex;
-  gap: 10px;
-  margin: 8px 0 14px;
+  gap: 8px;
+  margin: 6px 0 10px;
   flex-wrap: wrap;
 }
 
 .report-content .rpt-kpi-card {
   flex: 1;
-  min-width: 100px;
+  min-width: 90px;
   background: linear-gradient(135deg, #f0f6ff, #e8f0fd);
   border: 1px solid #c8d6ee;
-  border-radius: 8px;
-  padding: 10px 12px;
+  border-radius: 7px;
+  padding: 7px 10px;
 }
 
 .report-content .rpt-kpi-label {
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #4b6a9b;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .report-content .rpt-kpi-big {
-  font-size: 22px;
+  font-size: 17px;
   font-weight: 700;
   color: #1b3b6f;
   line-height: 1.1;
 }
 
 .report-content .rpt-kpi-unit {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   color: #4b6a9b;
-  margin-left: 3px;
+  margin-left: 2px;
 }
 
 .report-content .rpt-kpi-sub {
-  font-size: 10px;
+  font-size: 8.5px;
   color: #6b82a8;
   margin-top: 2px;
 }
 
 .report-content .rpt-kpi-inline {
-  font-size: 12px;
+  font-size: 10px;
   color: #374151;
-  margin: 2px 0 10px;
+  margin: 2px 0 8px;
 }
 
 .report-content .rpt-kpi-val {
   font-weight: 700;
   color: #1b3b6f;
-  font-size: 13px;
+  font-size: 11px;
 }
 
 /* ── CAJA COMBUSTIBLE EJECUTIVA ─────────── */
@@ -433,21 +439,21 @@
   border: 1px solid #c8d6ee;
   border-left: 4px solid #1260a8;
   border-radius: 6px;
-  padding: 12px 14px;
-  margin: 4px 0 14px;
+  padding: 8px 11px;
+  margin: 3px 0 10px;
 }
 
 .report-content .rpt-fuel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .report-content .rpt-fuel-title {
-  font-size: 11.5px;
+  font-size: 9.5px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
@@ -455,9 +461,9 @@
 }
 
 .report-content .rpt-fuel-causa {
-  font-size: 11.5px;
+  font-size: 9.5px;
   color: #4b5563;
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-style: italic;
 }
 
@@ -466,9 +472,9 @@
 .report-content .badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 9px;
+  padding: 1px 7px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.03em;
   border-width: 1px;
@@ -488,10 +494,10 @@
   border: 1px solid #e5ecf8;
   border-left: 3px solid #64748b;
   border-radius: 4px;
-  padding: 10px 13px;
-  font-size: 12.5px;
+  padding: 7px 11px;
+  font-size: 10px;
   color: #374151;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .report-content .rpt-obs-empty {
@@ -505,10 +511,10 @@
   background: #f0f4fb;
   border: 1px solid #c8d6ee;
   border-radius: 5px;
-  padding: 8px 12px;
-  font-size: 11.5px;
+  padding: 6px 10px;
+  font-size: 9.5px;
   color: #4b6a9b;
-  margin: 4px 0 12px;
+  margin: 3px 0 9px;
 }
 
 .report-content .rpt-notice-error {
@@ -521,21 +527,21 @@
   background: #f8f9ff;
   border: 1px dashed #bfcde8;
   border-radius: 5px;
-  padding: 10px 13px;
-  font-size: 10.5px;
+  padding: 7px 11px;
+  font-size: 8.5px;
   color: #4b5563;
-  line-height: 1.55;
-  margin-top: 10px;
+  line-height: 1.5;
+  margin-top: 8px;
 }
 
 .report-content .rpt-muted {
   color: #9ca3af;
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .report-content p {
-  font-size: 12px;
-  margin: 4px 0 8px;
+  font-size: 10px;
+  margin: 3px 0 6px;
   color: #374151;
 }
 
