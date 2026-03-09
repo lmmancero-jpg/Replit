@@ -228,7 +228,13 @@ function findRowByDate(rows: any[][], fechaJS: Date): any[] | null {
 // ========= ENCABEZADO =========
 
 function rptHeader(tipo: string, subtitulo: string): string {
-  return `<div class="rpt-header">
+  // El bloque <style> se inyecta dentro del DOM del informe para garantizar que
+  // html2canvas aplique vertical-align:middle en los estilos computados de cada
+  // celda, independientemente del soporte de hojas externas durante la captura.
+  const inlineStyles = `<style>
+.data-table td,.data-table th{vertical-align:middle!important}
+</style>`;
+  return `${inlineStyles}<div class="rpt-header">
   <div class="rpt-header-body">
     <div class="rpt-header-left">
       <div class="rpt-logo-circle">
