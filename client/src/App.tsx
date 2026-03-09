@@ -7,12 +7,14 @@ import NotFound from "@/pages/not-found";
 
 import Generator from "./pages/generator";
 import History from "./pages/history";
+import Metrics from "./pages/metrics";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Generator} />
       <Route path="/history" component={History} />
+      <Route path="/metrics" component={Metrics} />
       <Route component={NotFound} />
     </Switch>
   );

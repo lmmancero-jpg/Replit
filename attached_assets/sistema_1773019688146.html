@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central El Morro – Sistema Integrado de Gráficas</title>
+
+  <link rel="stylesheet" href="sistema.css" />
+
+  <!-- Librerías -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script src="sistema.js" defer></script>
+</head>
+<body class="app-root">
+
+  <header class="app-header">
+    <div>
+      <h1>Central El Morro – Sistema Integrado</h1>
+      <div class="subtitle">Producción • Clientes • Eficiencia • Combustible • Tanques • PDF</div>
+    </div>
+
+    <nav class="tabs" role="tablist" aria-label="Módulos">
+      <button class="tab active" data-tab="tab-produccion" role="tab" aria-selected="true">Producción</button>
+      <button class="tab" data-tab="tab-combustible" role="tab" aria-selected="false">Combustible & Tanques</button>
+    </nav>
+  </header>
+
+  <main class="app-main">
+
+    <!-- CONTROLES COMPARTIDOS -->
+    <section class="panel-controles">
+      <div class="panel-controles-title">Parámetros de consulta</div>
+
+      <div class="inputs-row">
+        <div class="input-group">
+          <label for="fileProduccion">Archivo de Producción (GEN):</label>
+          <input type="file" id="fileProduccion" accept=".xlsx,.xls" />
+        </div>
+
+        <div class="input-group">
+          <label for="fileAforo">Archivo de Aforo (Tanques):</label>
+          <input type="file" id="fileAforo" accept=".xlsx,.xls" />
+        </div>
+
+        <div class="input-group">
+          <label for="mesSeleccionado">Mes (Hoja del GEN):</label>
+          <select id="mesSeleccionado" disabled>
+            <option value="">-- Cargue el GEN --</option>
+          </select>
+        </div>
+
+        <div class="panel-actions">
+          <button id="btnProcesar" class="btn btn-primary" disabled>Procesar</button>
+
+          <div class="split">
+            <button id="btnPdf" class="btn btn-secondary" disabled>Exportar PDF</button>
+            <select id="pdfTipo" class="select-mini" disabled>
+              <option value="produccion">Producción (multi-página)</option>
+              <option value="combustible">Combustible (1 página)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="statusText" class="status-bar"></div>
+    </section>
+
+    <!-- ================= TAB: PRODUCCIÓN ================= -->
+    <section id="tab-produccion" class="tab-panel active" role="tabpanel">
+      <div class="resumen-grid" id="kpiProduccion"></div>
+
+      <section class="charts-wrapper" id="chartsProduccion">
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Energía Total</div>
+            <div class="chart-subtitle">kWh generados por día</div>
+          </div>
+          <div class="chart-body"><canvas id="chartEnergiaTotal"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Energía por Cliente</div>
+            <div class="chart-subtitle">LANEC • GRACA • Auxiliares</div>
+          </div>
+          <div class="chart-body"><canvas id="chartEnergiaAlimentadores"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Energía por Unidad</div>
+            <div class="chart-subtitle">U1 (9L26) • U2 (9SW280)</div>
+          </div>
+          <div class="chart-body"><canvas id="chartEnergiaUnidades"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Potencia Promedio</div>
+            <div class="chart-subtitle">kW promedio por unidad (energía / horas)</div>
+          </div>
+          <div class="chart-body"><canvas id="chartPotenciaProm"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Horas de Operación</div>
+            <div class="chart-subtitle">Horas diarias por unidad</div>
+          </div>
+          <div class="chart-body"><canvas id="chartHorasOp"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Eficiencia</div>
+            <div class="chart-subtitle">kWh por galón (columna AM)</div>
+          </div>
+          <div class="chart-body"><canvas id="chartEficiencia"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">Tanques & Sludge</div>
+            <div class="chart-subtitle">T601/T602/T610/T611/Cisterna 2 (00H00)</div>
+          </div>
+          <div class="chart-body"><canvas id="chartTanquesAll"></canvas></div>
+        </div>
+      </section>
+    </section>
+
+    <!-- ================= TAB: COMBUSTIBLE ================= -->
+    <section id="tab-combustible" class="tab-panel" role="tabpanel">
+      <div class="panel-header">
+        <div>
+          <h2>Combustible</h2>
+          <div class="panel-subtitle">Informe Gerencial de Combustible — Central El Morro</div>
+        </div>
+        <div class="hint">Carga GEN + Aforo, selecciona mes y procesa.</div>
+      </div>
+
+      <div class="fuel-report-header">
+        <div class="fuel-report-title">Central El Morro - Informe Gerencial de Combustible</div>
+        <div class="fuel-report-meta">
+          <div>Mes analizado: <span id="fuelMes">—</span></div>
+          <div>Fecha emisión: <span id="fuelFecha">—</span></div>
+        </div>
+      </div>
+
+      <div class="kpi-row" id="fuelKpis"></div>
+
+      <div class="grid-2x3">
+        <div class="chart-card">
+          <div class="chart-title">Consumo total HFO vs Diesel</div>
+          <div class="chart-subtitle">Galones diarios totales de combustible</div>
+          <div class="chart-body"><canvas id="chartTotal"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Consumo HFO por unidad</div>
+          <div class="chart-subtitle">Reparto HFO entre G1 y G2 según energía diaria</div>
+          <div class="chart-body"><canvas id="chartHFOUnidad"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Consumo Diesel por unidad</div>
+          <div class="chart-subtitle">Reparto Diesel entre G1 y G2 según energía diaria</div>
+          <div class="chart-body"><canvas id="chartDOUnidad"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Tanques HFO T601 y T602</div>
+          <div class="chart-subtitle">Volumen (gal) a las 00H00</div>
+          <div class="chart-body"><canvas id="chartHFOtanques"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Tanques Diesel T610 y T611</div>
+          <div class="chart-subtitle">Volumen (gal) a las 00H00</div>
+          <div class="chart-body"><canvas id="chartDOtanques"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Cisterna 2 (Sludge)</div>
+          <div class="chart-subtitle">Volumen (gal) registrado como "CISTERNA 2"</div>
+          <div class="chart-body"><canvas id="chartCisterna"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+      </section>
+</section>
+
+  </main>
+</body>
+</html>

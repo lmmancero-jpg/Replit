@@ -19,7 +19,7 @@ export function AppSidebar() {
   const navItems = [
     { title: "Generador", url: "/", icon: Zap },
     { title: "Historial", url: "/history", icon: History },
-    { title: "Métricas (Pronto)", url: "#", icon: BarChart3, disabled: true },
+    { title: "Métricas", url: "/metrics", icon: BarChart3, disabled: false },
     { title: "Ajustes", url: "#", icon: Settings, disabled: true },
   ];
 

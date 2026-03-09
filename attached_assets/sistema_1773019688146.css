@@ -1,0 +1,379 @@
+/* ===========================
+   SISTEMA INTEGRADO – Central El Morro
+   =========================== */
+
+:root{
+  --primary:#0063a6;
+  --secondary:#00a65a;
+  --accent:#f59e0b;
+  --bg:#f5f7fa;
+  --card:#ffffff;
+  --border:#dde3eb;
+  --text:#1f2933;
+  --muted:#6b778c;
+
+  --r-sm:6px;
+  --r-md:10px;
+  --r-lg:16px;
+
+  --shadow:0 8px 20px rgba(15, 23, 42, 0.06);
+  --shadow2:0 2px 10px rgba(15, 23, 42, 0.06);
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.5;
+}
+
+.app-root{ min-height:100vh; display:flex; flex-direction:column; }
+
+.app-header{
+  background: linear-gradient(90deg, var(--primary), #0094d4);
+  color:#fff;
+  padding:16px 24px;
+  box-shadow:var(--shadow2);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.app-header h1{
+  margin:0;
+  font-size:1.18rem;
+  letter-spacing:.03em;
+  text-transform:uppercase;
+}
+.app-header .subtitle{ font-size:.85rem; opacity:.92; }
+
+.tabs{ display:flex; gap:8px; }
+.tab{
+  border:none;
+  cursor:pointer;
+  padding:8px 14px;
+  border-radius:999px;
+  background: rgba(255,255,255,.16);
+  color:#fff;
+  font-weight:700;
+  font-size:.85rem;
+  transition: transform .05s ease, background .12s ease;
+}
+.tab:hover{ transform: translateY(-1px); background: rgba(255,255,255,.22); }
+.tab.active{ background:#fff; color: var(--primary); }
+
+.app-main{
+  padding:18px 24px 28px;
+  max-width: 1280px;
+  width:100%;
+  margin:0 auto;
+}
+
+.panel-controles{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow);
+  padding:14px 16px;
+  margin-bottom:18px;
+}
+.panel-controles-title{
+  font-size:.9rem;
+  font-weight:800;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin-bottom:10px;
+}
+.inputs-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px 16px;
+  align-items:flex-end;
+}
+.input-group{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:220px;
+}
+label{ font-size:.85rem; color:var(--muted); font-weight:600; }
+
+input[type="file"], select{
+  font-size:.88rem;
+  padding:6px 10px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--border);
+  background:#fff;
+  color:var(--text);
+  min-height:36px;
+}
+select:disabled, input:disabled{ opacity:.6; }
+
+.panel-actions{
+  margin-left:auto;
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+  flex-wrap:wrap;
+}
+
+.btn{
+  border:none;
+  cursor:pointer;
+  padding:9px 16px;
+  border-radius:999px;
+  font-size:.9rem;
+  font-weight:800;
+  transition: transform .05s ease, box-shadow .08s ease, background .12s ease;
+  white-space:nowrap;
+}
+.btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+
+.btn-primary{
+  background:var(--primary);
+  color:#fff;
+  box-shadow:0 4px 12px rgba(0,99,166,.18);
+}
+.btn-primary:not(:disabled):hover{ background:#005189; transform: translateY(-1px); box-shadow:0 6px 16px rgba(0,99,166,.22); }
+
+.btn-secondary{
+  background:var(--secondary);
+  color:#fff;
+  box-shadow:0 4px 12px rgba(0,166,90,.16);
+}
+.btn-secondary:not(:disabled):hover{ background:#008a4a; transform: translateY(-1px); box-shadow:0 6px 16px rgba(0,166,90,.22); }
+
+.split{ display:flex; gap:8px; align-items:center; }
+.select-mini{
+  min-width: 230px;
+  padding:8px 10px;
+  border-radius:999px;
+}
+
+.status-bar{
+  font-size:.82rem;
+  color:var(--muted);
+  margin-top:10px;
+  border-top:1px dashed var(--border);
+  padding-top:10px;
+}
+
+/* KPI cards */
+.resumen-grid{
+  margin: 0 0 14px;
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap:12px;
+}
+.kpi{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r-md);
+  box-shadow:var(--shadow);
+  padding:10px 12px;
+  border-left:4px solid var(--primary);
+  display:flex;
+  flex-direction:column;
+  height:100%;
+  min-height:118px;
+}
+
+.kpi .kpi-title{
+  font-size:.78rem;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-weight:800;
+  min-height:20px;
+}
+
+.kpi .kpi-value{
+  font-size:1.25rem;
+  font-weight:900;
+  margin-top:2px;
+  min-height:44px;
+  display:flex;
+  align-items:flex-end;
+}
+
+.kpi .kpi-sub{
+  font-size:.78rem;
+  color:var(--muted);
+  margin-top:2px;
+  margin-top:auto;
+  min-height:20px;
+  font-size:.9rem;
+  font-weight:700;
+}
+
+
+/* Tab panels */
+.tab-panel{ display:none; }
+.tab-panel.active{ display:block; }
+
+/* Charts */
+.charts-wrapper{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow);
+  padding:16px 16px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+.charts-wrapper.grid-fuel{
+  /* Igual idea del módulo original: una grilla de cards separadas */
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:16px;
+}
+.chart-card{
+  border:1px solid #edf0f5;
+  border-radius:var(--r-md);
+  background:#fff;
+  padding:10px 12px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.chart-card-header{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:baseline;
+}
+.chart-title{ font-weight:900; font-size:.95rem; }
+.chart-subtitle{ font-size:.78rem; color:var(--muted); }
+.chart-body{ position:relative; width:100%; height:320px; }
+canvas{ background:#fff !important; border-radius:var(--r-sm); }
+
+@media (max-width: 1280px){
+  .charts-wrapper.grid-fuel{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+@media (max-width: 980px){
+  .charts-wrapper.grid-fuel{ grid-template-columns: 1fr; }
+  .app-main{ padding:16px 14px 22px; }
+  .chart-body{ height:240px; }
+  .panel-actions{ margin-left:0; }
+}
+
+
+/* ===========================
+   Informe Combustible (layout como PDF)
+   =========================== */
+.fuel-report{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.fuel-report-topbar{
+  background:#0b1220;
+  color:#fff;
+  padding:14px 16px 10px 16px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+}
+.fuel-report-title{
+  font-weight:800;
+  letter-spacing:.2px;
+  font-size:16px;
+  margin-bottom:6px;
+}
+.fuel-report-meta{
+  display:flex;
+  gap:18px;
+  flex-wrap:wrap;
+  font-size:12px;
+  opacity:.95;
+}
+
+.fuel-kpi-strip{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:10px;
+  padding:12px 14px;
+  background: rgba(15,23,42,0.02);
+  border-bottom:1px solid var(--border);
+}
+@media (max-width: 860px){
+  .fuel-kpi-strip{ grid-template-columns: 1fr; }
+}
+
+.fuel-grid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:14px;
+  padding:14px;
+}
+@media (max-width: 980px){
+  .fuel-grid{ grid-template-columns: 1fr; }
+}
+
+.fuel-panel{
+  border:1px solid var(--border);
+  background: #fff;
+  border-radius: 12px;
+  overflow:hidden;
+  box-shadow: 0 1px 8px rgba(15,23,42,0.05);
+}
+.fuel-panel-title{
+  padding:10px 12px;
+  font-weight:800;
+  font-size:13px;
+  border-bottom:1px solid var(--border);
+  background: rgba(15,23,42,0.02);
+}
+.fuel-panel-body{
+  height: 220px;
+  padding: 8px 10px 10px 10px;
+}
+
+
+
+/* ===== Combustible: layout 2x3 como informe ===== */
+.fuel-report-header{
+  margin: 8px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: var(--r-md);
+  background: rgba(15,23,42,.25);
+}
+.fuel-report-title{
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.fuel-report-meta{
+  margin-top: 6px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.kpi-row{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 10px 0 14px;
+  align-items:stretch;
+}
+
+
+.grid-2x3{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px){
+  .grid-2x3{ grid-template-columns: 1fr; }
+  .kpi-row{ grid-template-columns: 1fr; }
+}
