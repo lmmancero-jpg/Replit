@@ -470,14 +470,14 @@ export default function Metrics() {
                 Renderizando gráficos · Por favor espere
               </div>
             </div>
-            {/* Contenedor de captura: visible en pantalla, cubierto por el overlay */}
+            {/* Contenedor de captura: 794px = A4 portrait @96dpi, cubierto por el overlay */}
             <div
               ref={printRef}
               style={{
                 position: "fixed",
                 top: 0,
                 left: 0,
-                width: "1122px",
+                width: "794px",
                 background: "#fff",
                 zIndex: 9998,
                 pointerEvents: "none",

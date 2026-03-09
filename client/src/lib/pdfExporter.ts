@@ -26,7 +26,7 @@
 const RENDER_SCALE  = 3;
 const JPEG_QUALITY  = 0.92;
 const REPORT_WIN_W  = 1250;
-const METRICS_WIN_W = 1122;
+const METRICS_WIN_W = 794;   // A4 portrait @96dpi
 /**
  * Distancia máxima hacia atrás para buscar un espacio en blanco antes del
  * límite teórico de página. 300px canvas ≈ 100px DOM @scale-3.
@@ -202,8 +202,52 @@ export async function exportReportPDF(
 }
 
 /**
- * Exporta las métricas a PDF A4 landscape, capturando cada sección
- * [data-pdf-section] de forma independiente para preservar los gráficos.
+ * Coloca un canvas en UNA sola página A4, escalando si es necesario.
+ *
+ * Garantiza que el contenido nunca sea cortado por salto de página:
+ *  – Si el canvas cabe con ancho completo → se coloca tal cual.
+ *  – Si la altura resultante excede el área útil → se escala uniformemente
+ *    para ajustarse a la altura disponible (centered horizontally).
+ */
+function placeOnePage(
+  pdf:         any,
+  canvas:      HTMLCanvasElement,
+  contentMmW:  number,
+  contentMmH:  number,
+  marginMm:    number,
+  isFirstPage: { value: boolean },
+): void {
+  if (!isFirstPage.value) pdf.addPage();
+  isFirstPage.value = false;
+
+  const aspectRatio = canvas.height / canvas.width;
+
+  let drawW = contentMmW;
+  let drawH = drawW * aspectRatio;
+
+  if (drawH > contentMmH) {
+    // La sección es más alta que la página → escalar para que quepa en altura
+    drawH = contentMmH;
+    drawW = drawH / aspectRatio;
+  }
+
+  // Centrar horizontalmente si se escaló para ajuste de altura
+  const xOffset = marginMm + (contentMmW - drawW) / 2;
+
+  pdf.addImage(
+    canvas.toDataURL("image/jpeg", JPEG_QUALITY),
+    "JPEG",
+    xOffset, marginMm,
+    drawW, drawH,
+  );
+}
+
+/**
+ * Exporta las métricas a PDF A4 portrait.
+ *
+ * Cada sección [data-pdf-section] ocupa exactamente UNA hoja, sin cortes
+ * por salto de página. Si una sección supera la altura útil del A4 se
+ * escala proporcionalmente para que quede completa en una sola hoja.
  */
 export async function exportMetricsPDF(
   container: HTMLElement,
@@ -211,20 +255,20 @@ export async function exportMetricsPDF(
 ): Promise<void> {
   const { html2canvas, jsPDF } = await loadDeps();
 
-  const marginMm   = 7;
-  const contentMmW = 297 - marginMm * 2;   // 283 mm
-  const contentMmH = 210 - marginMm * 2;   // 196 mm
+  const marginMm   = 8;
+  const contentMmW = 210 - marginMm * 2;   // 194 mm
+  const contentMmH = 297 - marginMm * 2;   // 281 mm
 
   const sections = Array.from(
     container.querySelectorAll<HTMLElement>("[data-pdf-section]"),
   );
 
-  const pdf         = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+  const pdf         = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const isFirstPage = { value: true };
 
   for (const section of sections) {
     const canvas = await captureElement(section, html2canvas, METRICS_WIN_W);
-    assemblePages(pdf, canvas, contentMmW, contentMmH, marginMm, isFirstPage);
+    placeOnePage(pdf, canvas, contentMmW, contentMmH, marginMm, isFirstPage);
   }
 
   pdf.save(`Metricas_ElMorro_${period}.pdf`);
