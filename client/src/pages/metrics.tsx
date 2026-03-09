@@ -1,5 +1,4 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import * as XLSX from "xlsx";
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, PointElement, LineElement,
@@ -43,7 +42,7 @@ function makeGradient(color: string) {
   return (ctx: CanvasRenderingContext2D, chartArea: { top: number; bottom: number }) => {
     if (!chartArea) return color;
     const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-    gradient.addColorStop(0, hex(color, 0.35));
+    gradient.addColorStop(0, hex(color, 0.32));
     gradient.addColorStop(1, hex(color, 0.02));
     return gradient;
   };
@@ -71,35 +70,36 @@ function lineOpts(yLabel: string) {
   return {
     responsive: true,
     maintainAspectRatio: false,
+    animation: { duration: 0 } as { duration: number },
     interaction: { mode: "index" as const, intersect: false },
     plugins: {
       legend: {
         position: "top" as const,
-        labels: { boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11, family: "system-ui" } },
+        labels: { boxWidth: 10, boxHeight: 10, padding: 10, font: { size: 10, family: "system-ui" } },
       },
       tooltip: {
         backgroundColor: "rgba(15,23,42,0.9)",
-        titleFont: { size: 12, weight: "bold" as const },
-        bodyFont: { size: 11 },
-        padding: 10,
-        cornerRadius: 8,
+        titleFont: { size: 11, weight: "bold" as const },
+        bodyFont: { size: 10 },
+        padding: 8,
+        cornerRadius: 6,
       },
     },
     scales: {
       x: {
         grid: { color: "rgba(0,0,0,0.04)" },
-        ticks: { font: { size: 10 }, color: "#6b7280" },
+        ticks: { font: { size: 9 }, color: "#6b7280" },
       },
       y: {
         grid: { color: "rgba(0,0,0,0.04)" },
-        ticks: { font: { size: 10 }, color: "#6b7280" },
-        title: { display: true, text: yLabel, font: { size: 10 }, color: "#9ca3af" },
+        ticks: { font: { size: 9 }, color: "#6b7280" },
+        title: { display: true, text: yLabel, font: { size: 9 }, color: "#9ca3af" },
       },
     },
   };
 }
 
-// ─── File indicator (read-only view from store, or upload override) ───────────
+// ─── File indicator ───────────────────────────────────────────────────────────
 function FileIndicator({
   testId, label, loaded, fileName, onChange,
 }: {
@@ -116,8 +116,7 @@ function FileIndicator({
           : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"}`}
     >
       <input ref={ref} data-testid={testId} type="file" accept=".xlsx,.xls" onChange={onChange} className="hidden" />
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0
-        ${loaded ? "bg-green-500" : "bg-gray-200"}`}>
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${loaded ? "bg-green-500" : "bg-gray-200"}`}>
         {loaded ? <CheckCircle2 className="w-5 h-5 text-white" /> : <UploadCloud className="w-5 h-5 text-gray-500" />}
       </div>
       <div className="min-w-0">
@@ -131,10 +130,8 @@ function FileIndicator({
   );
 }
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
-function KpiCard({
-  title, value, unit, sub, icon: Icon, accent = P.blue,
-}: {
+// ─── KPI Card (pantalla) ──────────────────────────────────────────────────────
+function KpiCard({ title, value, unit, sub, icon: Icon, accent = P.blue }: {
   title: string; value: string; unit?: string; sub?: string;
   icon?: React.ElementType; accent?: string;
 }) {
@@ -145,8 +142,7 @@ function KpiCard({
         <div className="flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</span>
           {Icon && (
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: hex(accent, 0.1) }}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: hex(accent, 0.1) }}>
               <Icon className="w-4 h-4" style={{ color: accent }} />
             </div>
           )}
@@ -161,12 +157,9 @@ function KpiCard({
   );
 }
 
-// ─── Chart Card ──────────────────────────────────────────────────────────────
-function ChartCard({
-  title, subtitle, accent = P.blue, height = 280, children,
-}: {
-  title: string; subtitle?: string; accent?: string; height?: number;
-  children: React.ReactNode;
+// ─── Chart Card (pantalla) ────────────────────────────────────────────────────
+function ChartCard({ title, subtitle, accent = P.blue, height = 280, children }: {
+  title: string; subtitle?: string; accent?: string; height?: number; children: React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
@@ -210,6 +203,176 @@ function SectionHeader({ icon: Icon, title, sub, accent = P.blue }: {
   );
 }
 
+// ─── Componente de impresión PDF ──────────────────────────────────────────────
+// Renderiza AMBAS secciones con layout fijo para captura con html2canvas.
+// Se monta fuera de pantalla, espera a que Chart.js pinte, luego se captura.
+function PdfPrintContent({ data }: { data: ProcessedData }) {
+  const { prod, aforo, resumen } = data;
+  const mm = String(prod.targetMonth).padStart(2, "0");
+  const period = `${mm}/${prod.targetYear}`;
+  const today = new Date().toLocaleDateString("es-EC");
+
+  // Estilo de KPI para el PDF (inline, sin Tailwind)
+  const kpi = (label: string, val: string, unit: string, sub?: string, color = P.blue) => (
+    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", minWidth: 0 }}>
+      <div style={{ height: 4, background: color }} />
+      <div style={{ padding: "10px 14px" }}>
+        <div style={{ fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#9ca3af", marginBottom: 4 }}>{label}</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#111827" }}>{val} <span style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af" }}>{unit}</span></div>
+        {sub && <div style={{ fontSize: 10, color: "#6b7280", marginTop: 2 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+
+  const chartStyle = { position: "relative" as const, height: 230, marginTop: 4 };
+
+  return (
+    <div style={{ fontFamily: "system-ui, sans-serif", background: "#fff", padding: "0 24px 24px", width: "100%" }}>
+
+      {/* ── SECCIÓN PRODUCCIÓN ────────────────────────────────────────── */}
+      <div style={{ paddingTop: 24 }}>
+        {/* Cabecera */}
+        <div style={{ background: "linear-gradient(90deg,#0f172a,#1e3a5f)", borderRadius: 12, padding: "14px 20px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ color: "#93c5fd", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>Métricas de Producción</div>
+            <div style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>Central El Morro — Morro Energy S.A.</div>
+            <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>Período: <b style={{ color: "#e2e8f0" }}>{period}</b> · Hoja: {prod.sheetName} · Emisión: {today}</div>
+          </div>
+        </div>
+
+        {/* KPIs */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10, marginBottom: 18 }}>
+          {kpi("Energía total", fmt(resumen.energiaTotalMWh, 1), "MWh", `U1 ${fmt(resumen.energiaU1MWh, 1)} · U2 ${fmt(resumen.energiaU2MWh, 1)} MWh`, P.blue)}
+          {kpi("LANEC", fmt(resumen.energiaLanecMWh, 1), "MWh", `${fmt(resumen.energiaTotalMWh > 0 ? resumen.energiaLanecMWh / resumen.energiaTotalMWh * 100 : 0, 1)}% del total`, P.green)}
+          {kpi("GRACA", fmt(resumen.energiaGracaMWh, 1), "MWh", `${fmt(resumen.energiaTotalMWh > 0 ? resumen.energiaGracaMWh / resumen.energiaTotalMWh * 100 : 0, 1)}% del total`, P.amber)}
+          {kpi("Horas U1", fmt(resumen.horasU1, 0), "h", `U2: ${fmt(resumen.horasU2, 0)} h`, P.purple)}
+          {kpi("Eficiencia", resumen.eficProm != null ? fmt(resumen.eficProm, 2) : "—", "kWh/gal", period, P.cyan)}
+        </div>
+
+        {/* Gráficos fila 1 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[
+            { title: "Energía Total (kWh/día)", ds: [lineDataset("Energía total (kWh)", prod.etotal, 0)], y: "kWh" },
+            { title: "Energía por Cliente (kWh/día)", ds: [lineDataset("LANEC", prod.lanec, 0), lineDataset("GRACA", prod.graca, 1), lineDataset("Auxiliares", prod.aux, 2)], y: "kWh" },
+          ].map(({ title, ds, y }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Gráficos fila 2 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[
+            { title: "Energía por Unidad (kWh/día)", ds: [lineDataset("U1 (kWh)", prod.e_u1, 0), lineDataset("U2 (kWh)", prod.e_u2, 4)], y: "kWh" },
+            { title: "Potencia Promedio (kW/día)", ds: [lineDataset("Potencia U1", prod.pot_u1, 2), lineDataset("Potencia U2", prod.pot_u2, 3)], y: "kW" },
+          ].map(({ title, ds, y }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Gráficos fila 3 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: aforo ? 12 : 0 }}>
+          {[
+            { title: "Horas de Operación (h/día)", ds: [lineDataset("Horas U1", prod.h_u1, 5), lineDataset("Horas U2", prod.h_u2, 1)], y: "h" },
+            { title: "Eficiencia (kWh/gal·día)", ds: [lineDataset("Eficiencia", prod.rend, 7)], y: "kWh/gal" },
+          ].map(({ title, ds, y }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tanques combinados si hay aforo */}
+        {aforo && (
+          <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>Niveles de Tanques (gal · 00H00)</div>
+            <div style={{ position: "relative", height: 220, marginTop: 4 }}>
+              <Line data={{ labels: aforo.labels, datasets: [
+                lineDataset("T601 HFO", aforo.t601, 0),
+                lineDataset("T602 HFO", aforo.t602, 1),
+                lineDataset("T610 Diesel", aforo.t610, 2),
+                lineDataset("T611 Diesel", aforo.t611, 3),
+                lineDataset("Cisterna 2", aforo.cisterna2, 4),
+              ]}} options={lineOpts("gal")} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── SALTO DE PÁGINA ───────────────────────────────────────────── */}
+      <div className="pdf-page-break" style={{ breakBefore: "page", pageBreakBefore: "always", height: 1 }} />
+
+      {/* ── SECCIÓN COMBUSTIBLE ───────────────────────────────────────── */}
+      <div style={{ paddingTop: 24 }}>
+        {/* Cabecera */}
+        <div style={{ background: "linear-gradient(90deg,#0f172a,#292524)", borderRadius: 12, padding: "14px 20px", marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ color: "#fcd34d", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>Informe de Combustible & Tanques</div>
+            <div style={{ color: "#fff", fontSize: 18, fontWeight: 900 }}>Central El Morro — Morro Energy S.A.</div>
+            <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>Período: <b style={{ color: "#e2e8f0" }}>{period}</b> · Emisión: {today}</div>
+          </div>
+        </div>
+
+        {/* KPIs combustible */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 18 }}>
+          {kpi("HFO consumido", fmt(resumen.hfoGal, 0), "gal", `${fmt(resumen.hfoGal + resumen.doGal > 0 ? resumen.hfoGal / (resumen.hfoGal + resumen.doGal) * 100 : 0, 1)}% del total`, P.blue)}
+          {kpi("Diésel consumido", fmt(resumen.doGal, 0), "gal", `${fmt(resumen.hfoGal + resumen.doGal > 0 ? resumen.doGal / (resumen.hfoGal + resumen.doGal) * 100 : 0, 1)}% del total`, P.amber)}
+          {kpi("Días con registro", `${resumen.dias}`, "días", `Total: ${fmt(resumen.hfoGal + resumen.doGal, 0)} gal`, P.green)}
+        </div>
+
+        {/* Gráficos combustible fila 1 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[
+            { title: "Consumo total HFO vs Diésel (gal/día)", ds: [lineDataset("HFO total", prod.hfoTot.map(v => v || null), 0), lineDataset("Diésel total", prod.doTot.map(v => v || null), 2)], y: "gal" },
+            { title: "Consumo HFO por Unidad (gal/día)", ds: [lineDataset("HFO G1", prod.hfoG1.map(v => v || null), 0), lineDataset("HFO G2", prod.hfoG2.map(v => v || null), 5)], y: "gal" },
+          ].map(({ title, ds, y }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Gráficos combustible fila 2 */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[
+            { title: "Consumo Diésel por Unidad (gal/día)", ds: [lineDataset("Diésel G1", prod.doG1.map(v => v || null), 2), lineDataset("Diésel G2", prod.doG2.map(v => v || null), 4)], y: "gal" },
+            ...(aforo
+              ? [{ title: "Tanques HFO — T601 y T602 (gal · 00H00)", ds: [lineDataset("T601", aforo.t601, 0), lineDataset("T602", aforo.t602, 5)], y: "gal", labels: aforo.labels }]
+              : []),
+          ].map(({ title, ds, y, labels: lbl }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: lbl ?? prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Gráficos combustible fila 3 */}
+        {aforo && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[
+              { title: "Tanques Diésel — T610 y T611 (gal · 00H00)", ds: [lineDataset("T610", aforo.t610, 2), lineDataset("T611", aforo.t611, 3)] },
+              { title: "Cisterna 2 — Sludge (gal · 00H00)", ds: [lineDataset("Cisterna 2", aforo.cisterna2, 4)] },
+            ].map(({ title, ds }) => (
+              <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+                <div style={chartStyle}><Line data={{ labels: aforo.labels, datasets: ds }} options={lineOpts("gal")} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 type Tab = "produccion" | "combustible";
 interface ProcessedData { prod: ProdData; aforo: AforoData | null; resumen: Resumen; }
@@ -227,12 +390,12 @@ export default function Metrics() {
   const [activeTab, setActiveTab] = useState<Tab>("produccion");
   const [processing, setProcessing] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [showPrintContainer, setShowPrintContainer] = useState(false);
 
-  const tabContentRef = useRef<HTMLDivElement>(null);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const setMsg = (msg: string, err = false) => { setStatus(msg); setStatusError(err); };
 
-  // Sync sheets when wbProd changes (e.g. loaded from Generator page)
   useEffect(() => {
     if (wbProd) {
       setSheets(wbProd.SheetNames);
@@ -244,13 +407,11 @@ export default function Metrics() {
   }, [wbProd]);
 
   const onProdFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setProdEntry(file);
+    const file = e.target.files?.[0]; if (file) setProdEntry(file);
   }, [setProdEntry]);
 
   const onAforoFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setAforoEntry(file);
+    const file = e.target.files?.[0]; if (file) setAforoEntry(file);
   }, [setAforoEntry]);
 
   const onProcess = useCallback(() => {
@@ -277,33 +438,45 @@ export default function Metrics() {
   const canProcess = !!wbProd && !!wbAforo && !!selectedSheet && !prodLoading && !aforoLoading;
 
   const handleExportPDF = useCallback(async () => {
-    if (!data || !tabContentRef.current) return;
+    if (!data) return;
     setExportingPdf(true);
+
+    // 1. Mostrar el contenedor de impresión (fuera de pantalla pero en el DOM)
+    setShowPrintContainer(true);
+
+    // 2. Esperar a que React renderice + Chart.js pinte todos los canvas
+    await new Promise(r => setTimeout(r, 1800));
+
     try {
       const html2pdf = (await import("html2pdf.js")).default;
-      const tabLabel = activeTab === "produccion" ? "Produccion" : "Combustible_Tanques";
       const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
       const opt = {
-        margin: [6, 6, 6, 6],
-        filename: `Metricas_${tabLabel}_ElMorro_${period}.pdf`,
-        image: { type: "jpeg", quality: 0.95 },
+        margin: [8, 8, 8, 8],
+        filename: `Metricas_ElMorro_${period}.pdf`,
+        image: { type: "jpeg", quality: 0.97 },
         html2canvas: {
           scale: 2,
           scrollY: 0,
           useCORS: true,
           logging: false,
           allowTaint: true,
+          width: printRef.current?.offsetWidth,
         },
-        jsPDF: { unit: "mm", format: "a3", orientation: "landscape" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
+        pagebreak: { mode: ["css", "legacy"], before: ".pdf-page-break" },
       };
-      await html2pdf().set(opt).from(tabContentRef.current).save();
-      toast({ title: "PDF generado", description: "El archivo se está descargando." });
+
+      if (printRef.current) {
+        await html2pdf().set(opt).from(printRef.current).save();
+        toast({ title: "PDF generado", description: "Producción + Combustible en un solo documento." });
+      }
     } catch {
       toast({ title: "Error al generar PDF", description: "Intenta de nuevo.", variant: "destructive" });
     } finally {
+      setShowPrintContainer(false);
       setExportingPdf(false);
     }
-  }, [data, activeTab, toast]);
+  }, [data, toast]);
 
   const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
     { id: "produccion",  label: "Producción",           icon: Zap },
@@ -313,7 +486,25 @@ export default function Metrics() {
   return (
     <Layout>
       <div className="min-h-full bg-gray-50/60">
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
+
+        {/* ── Contenedor de impresión PDF (fuera de pantalla) ─────────── */}
+        {showPrintContainer && data && (
+          <div
+            ref={printRef}
+            style={{
+              position: "fixed",
+              left: "-9999px",
+              top: 0,
+              width: "1122px",
+              background: "#fff",
+              zIndex: -1,
+            }}
+          >
+            <PdfPrintContent data={data} />
+          </div>
+        )}
+
+        {/* ── Hero ─────────────────────────────────────────────────────── */}
         <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-6">
           <div className="max-w-[1280px] mx-auto flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -338,7 +529,7 @@ export default function Metrics() {
 
         <div className="max-w-[1280px] mx-auto px-6 py-6 space-y-5">
 
-          {/* ── Panel de carga ─────────────────────────────────────────────── */}
+          {/* ── Panel de carga ─────────────────────────────────────────── */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="text-xs font-extrabold uppercase tracking-widest text-gray-400 mb-1">
               Archivos de entrada
@@ -347,33 +538,16 @@ export default function Metrics() {
               Si ya cargaste los archivos en el Generador, aparecen listos aquí automáticamente.
             </p>
             <div className="flex flex-wrap gap-4 items-end">
+              <FileIndicator testId="input-metrics-gen" label="Producción (GEN)"
+                loaded={!!wbProd} fileName={fileNameProd} onChange={onProdFile} />
+              <FileIndicator testId="input-metrics-aforo" label="Aforo (Tanques)"
+                loaded={!!wbAforo} fileName={fileNameAforo} onChange={onAforoFile} />
 
-              <FileIndicator
-                testId="input-metrics-gen"
-                label="Producción (GEN)"
-                loaded={!!wbProd}
-                fileName={fileNameProd}
-                onChange={onProdFile}
-              />
-
-              <FileIndicator
-                testId="input-metrics-aforo"
-                label="Aforo (Tanques)"
-                loaded={!!wbAforo}
-                fileName={fileNameAforo}
-                onChange={onAforoFile}
-              />
-
-              {/* Mes */}
               <div className="flex flex-col gap-1.5 min-w-[180px]">
-                <label className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                  Mes / Hoja
-                </label>
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-400">Mes / Hoja</label>
                 <select
-                  id="metricsSheet"
-                  data-testid="select-metrics-sheet"
-                  value={selectedSheet}
-                  onChange={e => setSelectedSheet(e.target.value)}
+                  id="metricsSheet" data-testid="select-metrics-sheet"
+                  value={selectedSheet} onChange={e => setSelectedSheet(e.target.value)}
                   disabled={!sheets.length}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white min-h-[42px]
                     disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
@@ -385,18 +559,17 @@ export default function Metrics() {
 
               <button
                 data-testid="button-metrics-process"
-                onClick={onProcess}
-                disabled={!canProcess || processing}
+                onClick={onProcess} disabled={!canProcess || processing}
                 className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm
                   shadow-lg shadow-blue-600/25 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed
                   disabled:shadow-none transition-all duration-150 min-h-[42px]"
               >
-                {processing ? (
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                ) : <ChevronRight className="w-4 h-4" />}
+                {processing
+                  ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                  : <ChevronRight className="w-4 h-4" />}
                 {processing ? "Procesando…" : "Procesar"}
               </button>
             </div>
@@ -412,232 +585,168 @@ export default function Metrics() {
             )}
           </div>
 
-          {/* ── Resultados ─────────────────────────────────────────────────── */}
+          {/* ── Resultados ─────────────────────────────────────────────── */}
           {data ? (
             <>
-              {/* Barra de tabs + botón PDF */}
+              {/* Tabs + botón PDF */}
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
                   {TABS.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      data-testid={`tab-metrics-${id}`}
+                    <button key={id} data-testid={`tab-metrics-${id}`}
                       onClick={() => setActiveTab(id)}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all
-                        ${activeTab === id
-                          ? "bg-white shadow text-gray-900"
-                          : "text-gray-500 hover:text-gray-700"}`}
+                        ${activeTab === id ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                     >
-                      <Icon className="w-4 h-4" />
-                      {label}
+                      <Icon className="w-4 h-4" />{label}
                     </button>
                   ))}
                 </div>
 
                 <button
                   data-testid="button-metrics-pdf"
-                  onClick={handleExportPDF}
-                  disabled={exportingPdf}
+                  onClick={handleExportPDF} disabled={exportingPdf}
                   className="flex items-center gap-2 px-5 py-2 rounded-xl border border-gray-200 bg-white
                     text-sm font-semibold text-gray-700 hover:bg-gray-50 shadow-sm
-                    disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    disabled:opacity-60 disabled:cursor-not-allowed transition-all"
                 >
-                  {exportingPdf ? (
-                    <svg className="w-4 h-4 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                  ) : <FileDown className="w-4 h-4 text-blue-600" />}
-                  {exportingPdf ? "Generando PDF…" : "Exportar PDF"}
+                  {exportingPdf
+                    ? <>
+                        <svg className="w-4 h-4 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        Generando PDF…
+                      </>
+                    : <><FileDown className="w-4 h-4 text-blue-600" /> Exportar PDF completo</>}
                 </button>
               </div>
 
-              {/* Contenido de la tab (ref para captura PDF) */}
-              <div ref={tabContentRef}>
-
-                {/* ══ TAB PRODUCCIÓN ══════════════════════════════════════════ */}
-                {activeTab === "produccion" && (
-                  <div className="space-y-6">
-                    <section>
-                      <SectionHeader icon={Zap} title="Energía del período" sub="Totales y distribución mensual" accent={P.blue} />
-                      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-                        <KpiCard icon={Zap} accent={P.blue}
-                          title="Energía total"
-                          value={fmt(data.resumen.energiaTotalMWh, 1)} unit="MWh"
-                          sub={`U1 ${fmt(data.resumen.energiaU1MWh, 1)} · U2 ${fmt(data.resumen.energiaU2MWh, 1)} MWh`}
-                        />
-                        <KpiCard icon={TrendingUp} accent={P.green}
-                          title="LANEC"
-                          value={fmt(data.resumen.energiaLanecMWh, 1)} unit="MWh"
-                          sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? (data.resumen.energiaLanecMWh / data.resumen.energiaTotalMWh) * 100 : 0, 1)}% del total`}
-                        />
-                        <KpiCard icon={TrendingUp} accent={P.amber}
-                          title="GRACA"
-                          value={fmt(data.resumen.energiaGracaMWh, 1)} unit="MWh"
-                          sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? (data.resumen.energiaGracaMWh / data.resumen.energiaTotalMWh) * 100 : 0, 1)}% del total`}
-                        />
-                        <KpiCard icon={Clock} accent={P.purple}
-                          title="Horas operación"
-                          value={fmt(data.resumen.horasU1, 0)} unit="h U1"
-                          sub={`U2: ${fmt(data.resumen.horasU2, 0)} h`}
-                        />
-                        <KpiCard icon={TrendingUp} accent={P.cyan}
-                          title="Eficiencia"
-                          value={data.resumen.eficProm != null ? fmt(data.resumen.eficProm, 2) : "—"} unit="kWh/gal"
-                          sub={`Mes ${String(data.prod.targetMonth).padStart(2, "0")}/${data.prod.targetYear}`}
-                        />
-                      </div>
-                    </section>
-
-                    <section>
-                      <SectionHeader icon={BarChart2} title="Gráficas diarias" sub="Tendencias del período" accent={P.blue} />
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <ChartCard title="Energía Total" subtitle="kWh generados por día" accent={P.blue}>
-                          <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Energía total (kWh)", data.prod.etotal, 0)] }} options={lineOpts("kWh")} />
-                        </ChartCard>
-                        <ChartCard title="Energía por Cliente" subtitle="LANEC · GRACA · Auxiliares" accent={P.green}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("LANEC (kWh)", data.prod.lanec, 0),
-                            lineDataset("GRACA (kWh)", data.prod.graca, 1),
-                            lineDataset("Auxiliares (kWh)", data.prod.aux, 2),
-                          ]}} options={lineOpts("kWh")} />
-                        </ChartCard>
-                        <ChartCard title="Energía por Unidad" subtitle="U1 (9L26) · U2 (9SW280)" accent={P.purple}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("Unidad 1 (kWh)", data.prod.e_u1, 0),
-                            lineDataset("Unidad 2 (kWh)", data.prod.e_u2, 4),
-                          ]}} options={lineOpts("kWh")} />
-                        </ChartCard>
-                        <ChartCard title="Potencia Promedio" subtitle="kW por unidad (energía / horas)" accent={P.amber}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("Potencia U1 (kW)", data.prod.pot_u1, 2),
-                            lineDataset("Potencia U2 (kW)", data.prod.pot_u2, 3),
-                          ]}} options={lineOpts("kW")} />
-                        </ChartCard>
-                        <ChartCard title="Horas de Operación" subtitle="Horas diarias por unidad" accent={P.cyan}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("Horas U1 (h)", data.prod.h_u1, 5),
-                            lineDataset("Horas U2 (h)", data.prod.h_u2, 1),
-                          ]}} options={lineOpts("h")} />
-                        </ChartCard>
-                        <ChartCard title="Eficiencia" subtitle="kWh por galón consumido" accent={P.teal}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("Eficiencia (kWh/gal)", data.prod.rend, 7),
-                          ]}} options={lineOpts("kWh/gal")} />
-                        </ChartCard>
-                      </div>
-                    </section>
-
-                    {data.aforo && (
-                      <section>
-                        <SectionHeader icon={Database} title="Niveles de tanques" sub="Volúmenes a las 00H00 diarios" accent={P.cyan} />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <ChartCard title="Todos los Tanques & Sludge" subtitle="T601 · T602 · T610 · T611 · Cisterna 2" accent={P.cyan} height={300}>
-                            <Line data={{ labels: data.aforo.labels, datasets: [
-                              lineDataset("T601 HFO (gal)", data.aforo.t601, 0),
-                              lineDataset("T602 HFO (gal)", data.aforo.t602, 1),
-                              lineDataset("T610 Diesel (gal)", data.aforo.t610, 2),
-                              lineDataset("T611 Diesel (gal)", data.aforo.t611, 3),
-                              lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
-                            ]}} options={lineOpts("gal")} />
-                          </ChartCard>
-                        </div>
-                      </section>
-                    )}
-                  </div>
-                )}
-
-                {/* ══ TAB COMBUSTIBLE ═════════════════════════════════════════ */}
-                {activeTab === "combustible" && (
-                  <div className="space-y-6">
-                    <div className="rounded-xl overflow-hidden border border-slate-200">
-                      <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
-                        <div>
-                          <div className="text-white font-black text-sm tracking-wide">
-                            Informe Gerencial de Combustible — Central El Morro
-                          </div>
-                          <div className="text-slate-400 text-xs mt-0.5">
-                            Mes: <strong className="text-slate-200">{String(data.prod.targetMonth).padStart(2, "0")}/{data.prod.targetYear}</strong>
-                            &nbsp;·&nbsp; Emisión: <strong className="text-slate-200">{new Date().toLocaleDateString("es-EC")}</strong>
-                          </div>
-                        </div>
-                        <Fuel className="w-8 h-8 text-amber-400 opacity-70" />
-                      </div>
+              {/* ══ TAB PRODUCCIÓN ══════════════════════════════════════ */}
+              {activeTab === "produccion" && (
+                <div className="space-y-6">
+                  <section>
+                    <SectionHeader icon={Zap} title="Energía del período" sub="Totales y distribución mensual" accent={P.blue} />
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+                      <KpiCard icon={Zap} accent={P.blue} title="Energía total"
+                        value={fmt(data.resumen.energiaTotalMWh, 1)} unit="MWh"
+                        sub={`U1 ${fmt(data.resumen.energiaU1MWh, 1)} · U2 ${fmt(data.resumen.energiaU2MWh, 1)} MWh`} />
+                      <KpiCard icon={TrendingUp} accent={P.green} title="LANEC"
+                        value={fmt(data.resumen.energiaLanecMWh, 1)} unit="MWh"
+                        sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? data.resumen.energiaLanecMWh / data.resumen.energiaTotalMWh * 100 : 0, 1)}% del total`} />
+                      <KpiCard icon={TrendingUp} accent={P.amber} title="GRACA"
+                        value={fmt(data.resumen.energiaGracaMWh, 1)} unit="MWh"
+                        sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? data.resumen.energiaGracaMWh / data.resumen.energiaTotalMWh * 100 : 0, 1)}% del total`} />
+                      <KpiCard icon={Clock} accent={P.purple} title="Horas operación"
+                        value={fmt(data.resumen.horasU1, 0)} unit="h U1"
+                        sub={`U2: ${fmt(data.resumen.horasU2, 0)} h`} />
+                      <KpiCard icon={TrendingUp} accent={P.cyan} title="Eficiencia"
+                        value={data.resumen.eficProm != null ? fmt(data.resumen.eficProm, 2) : "—"} unit="kWh/gal"
+                        sub={`Mes ${String(data.prod.targetMonth).padStart(2, "0")}/${data.prod.targetYear}`} />
                     </div>
+                  </section>
 
-                    <section>
-                      <SectionHeader icon={Droplets} title="Consumo del período" sub="Totales mensuales de combustible" accent={P.amber} />
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <KpiCard icon={Droplets} accent={P.blue}
-                          title="HFO consumido"
-                          value={fmt(data.resumen.hfoGal, 0)} unit="gal"
-                          sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? (data.resumen.hfoGal / (data.resumen.hfoGal + data.resumen.doGal)) * 100 : 0, 1)}% del total`}
-                        />
-                        <KpiCard icon={Fuel} accent={P.amber}
-                          title="Diésel consumido"
-                          value={fmt(data.resumen.doGal, 0)} unit="gal"
-                          sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? (data.resumen.doGal / (data.resumen.hfoGal + data.resumen.doGal)) * 100 : 0, 1)}% del total`}
-                        />
-                        <KpiCard icon={BarChart2} accent={P.green}
-                          title="Días con registro"
-                          value={`${data.resumen.dias}`} unit="días"
-                          sub={`Total: ${fmt(data.resumen.hfoGal + data.resumen.doGal, 0)} gal`}
-                        />
-                      </div>
-                    </section>
+                  <section>
+                    <SectionHeader icon={BarChart2} title="Gráficas diarias" sub="Tendencias del período" accent={P.blue} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <ChartCard title="Energía Total" subtitle="kWh generados por día" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Energía total (kWh)", data.prod.etotal, 0)] }} options={lineOpts("kWh")} />
+                      </ChartCard>
+                      <ChartCard title="Energía por Cliente" subtitle="LANEC · GRACA · Auxiliares" accent={P.green}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("LANEC", data.prod.lanec, 0), lineDataset("GRACA", data.prod.graca, 1), lineDataset("Auxiliares", data.prod.aux, 2)] }} options={lineOpts("kWh")} />
+                      </ChartCard>
+                      <ChartCard title="Energía por Unidad" subtitle="U1 (9L26) · U2 (9SW280)" accent={P.purple}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Unidad 1 (kWh)", data.prod.e_u1, 0), lineDataset("Unidad 2 (kWh)", data.prod.e_u2, 4)] }} options={lineOpts("kWh")} />
+                      </ChartCard>
+                      <ChartCard title="Potencia Promedio" subtitle="kW por unidad (energía / horas)" accent={P.amber}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Potencia U1 (kW)", data.prod.pot_u1, 2), lineDataset("Potencia U2 (kW)", data.prod.pot_u2, 3)] }} options={lineOpts("kW")} />
+                      </ChartCard>
+                      <ChartCard title="Horas de Operación" subtitle="Horas diarias por unidad" accent={P.cyan}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Horas U1 (h)", data.prod.h_u1, 5), lineDataset("Horas U2 (h)", data.prod.h_u2, 1)] }} options={lineOpts("h")} />
+                      </ChartCard>
+                      <ChartCard title="Eficiencia" subtitle="kWh por galón consumido" accent={P.teal}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Eficiencia (kWh/gal)", data.prod.rend, 7)] }} options={lineOpts("kWh/gal")} />
+                      </ChartCard>
+                    </div>
+                  </section>
 
+                  {data.aforo && (
                     <section>
-                      <SectionHeader icon={FlameKindling} title="Consumo por tipo y unidad" sub="Prorrateo por energía generada" accent={P.amber} />
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                        <ChartCard title="Consumo total HFO vs Diésel" subtitle="Galones diarios totales" accent={P.blue}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("HFO total (gal)", data.prod.hfoTot.map(v => v || null), 0),
-                            lineDataset("Diésel total (gal)", data.prod.doTot.map(v => v || null), 2),
+                      <SectionHeader icon={Database} title="Niveles de tanques" sub="Volúmenes a las 00H00 diarios" accent={P.cyan} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ChartCard title="Todos los Tanques & Sludge" subtitle="T601 · T602 · T610 · T611 · Cisterna 2" accent={P.cyan} height={300}>
+                          <Line data={{ labels: data.aforo.labels, datasets: [
+                            lineDataset("T601 HFO (gal)", data.aforo.t601, 0),
+                            lineDataset("T602 HFO (gal)", data.aforo.t602, 1),
+                            lineDataset("T610 Diesel (gal)", data.aforo.t610, 2),
+                            lineDataset("T611 Diesel (gal)", data.aforo.t611, 3),
+                            lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
                           ]}} options={lineOpts("gal")} />
-                        </ChartCard>
-                        <ChartCard title="HFO por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.blue}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("HFO G1 (gal)", data.prod.hfoG1.map(v => v || null), 0),
-                            lineDataset("HFO G2 (gal)", data.prod.hfoG2.map(v => v || null), 5),
-                          ]}} options={lineOpts("gal")} />
-                        </ChartCard>
-                        <ChartCard title="Diésel por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.amber}>
-                          <Line data={{ labels: data.prod.labels, datasets: [
-                            lineDataset("Diésel G1 (gal)", data.prod.doG1.map(v => v || null), 2),
-                            lineDataset("Diésel G2 (gal)", data.prod.doG2.map(v => v || null), 4),
-                          ]}} options={lineOpts("gal")} />
-                        </ChartCard>
-                        <ChartCard title="Tanques HFO — T601 y T602" subtitle="Volumen (gal) a las 00H00" accent={P.blue}>
-                          {data.aforo
-                            ? <Line data={{ labels: data.aforo.labels, datasets: [
-                                lineDataset("T601 (HFO, gal)", data.aforo.t601, 0),
-                                lineDataset("T602 (HFO, gal)", data.aforo.t602, 5),
-                              ]}} options={lineOpts("gal")} />
-                            : <NoAforo />}
-                        </ChartCard>
-                        <ChartCard title="Tanques Diésel — T610 y T611" subtitle="Volumen (gal) a las 00H00" accent={P.amber}>
-                          {data.aforo
-                            ? <Line data={{ labels: data.aforo.labels, datasets: [
-                                lineDataset("T610 (Diesel, gal)", data.aforo.t610, 2),
-                                lineDataset("T611 (Diesel, gal)", data.aforo.t611, 3),
-                              ]}} options={lineOpts("gal")} />
-                            : <NoAforo />}
-                        </ChartCard>
-                        <ChartCard title="Cisterna 2 — Sludge" subtitle='Volumen registrado como "CISTERNA 2"' accent={P.purple}>
-                          {data.aforo
-                            ? <Line data={{ labels: data.aforo.labels, datasets: [
-                                lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
-                              ]}} options={lineOpts("gal")} />
-                            : <NoAforo />}
                         </ChartCard>
                       </div>
                     </section>
+                  )}
+                </div>
+              )}
+
+              {/* ══ TAB COMBUSTIBLE ══════════════════════════════════════ */}
+              {activeTab === "combustible" && (
+                <div className="space-y-6">
+                  <div className="rounded-xl overflow-hidden border border-slate-200">
+                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="text-white font-black text-sm tracking-wide">Informe Gerencial de Combustible — Central El Morro</div>
+                        <div className="text-slate-400 text-xs mt-0.5">
+                          Mes: <strong className="text-slate-200">{String(data.prod.targetMonth).padStart(2, "0")}/{data.prod.targetYear}</strong>
+                          &nbsp;·&nbsp; Emisión: <strong className="text-slate-200">{new Date().toLocaleDateString("es-EC")}</strong>
+                        </div>
+                      </div>
+                      <Fuel className="w-8 h-8 text-amber-400 opacity-70" />
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <section>
+                    <SectionHeader icon={Droplets} title="Consumo del período" sub="Totales mensuales de combustible" accent={P.amber} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <KpiCard icon={Droplets} accent={P.blue} title="HFO consumido"
+                        value={fmt(data.resumen.hfoGal, 0)} unit="gal"
+                        sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? data.resumen.hfoGal / (data.resumen.hfoGal + data.resumen.doGal) * 100 : 0, 1)}% del total`} />
+                      <KpiCard icon={Fuel} accent={P.amber} title="Diésel consumido"
+                        value={fmt(data.resumen.doGal, 0)} unit="gal"
+                        sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? data.resumen.doGal / (data.resumen.hfoGal + data.resumen.doGal) * 100 : 0, 1)}% del total`} />
+                      <KpiCard icon={BarChart2} accent={P.green} title="Días con registro"
+                        value={`${data.resumen.dias}`} unit="días"
+                        sub={`Total: ${fmt(data.resumen.hfoGal + data.resumen.doGal, 0)} gal`} />
+                    </div>
+                  </section>
+
+                  <section>
+                    <SectionHeader icon={FlameKindling} title="Consumo por tipo y unidad" sub="Prorrateo por energía generada" accent={P.amber} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <ChartCard title="Consumo total HFO vs Diésel" subtitle="Galones diarios totales" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("HFO total (gal)", data.prod.hfoTot.map(v => v || null), 0), lineDataset("Diésel total (gal)", data.prod.doTot.map(v => v || null), 2)] }} options={lineOpts("gal")} />
+                      </ChartCard>
+                      <ChartCard title="HFO por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("HFO G1 (gal)", data.prod.hfoG1.map(v => v || null), 0), lineDataset("HFO G2 (gal)", data.prod.hfoG2.map(v => v || null), 5)] }} options={lineOpts("gal")} />
+                      </ChartCard>
+                      <ChartCard title="Diésel por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.amber}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Diésel G1 (gal)", data.prod.doG1.map(v => v || null), 2), lineDataset("Diésel G2 (gal)", data.prod.doG2.map(v => v || null), 4)] }} options={lineOpts("gal")} />
+                      </ChartCard>
+                      <ChartCard title="Tanques HFO — T601 y T602" subtitle="Volumen (gal) a las 00H00" accent={P.blue}>
+                        {data.aforo ? <Line data={{ labels: data.aforo.labels, datasets: [lineDataset("T601 (HFO, gal)", data.aforo.t601, 0), lineDataset("T602 (HFO, gal)", data.aforo.t602, 5)] }} options={lineOpts("gal")} /> : <NoAforo />}
+                      </ChartCard>
+                      <ChartCard title="Tanques Diésel — T610 y T611" subtitle="Volumen (gal) a las 00H00" accent={P.amber}>
+                        {data.aforo ? <Line data={{ labels: data.aforo.labels, datasets: [lineDataset("T610 (Diesel, gal)", data.aforo.t610, 2), lineDataset("T611 (Diesel, gal)", data.aforo.t611, 3)] }} options={lineOpts("gal")} /> : <NoAforo />}
+                      </ChartCard>
+                      <ChartCard title="Cisterna 2 — Sludge" subtitle='Volumen registrado como "CISTERNA 2"' accent={P.purple}>
+                        {data.aforo ? <Line data={{ labels: data.aforo.labels, datasets: [lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4)] }} options={lineOpts("gal")} /> : <NoAforo />}
+                      </ChartCard>
+                    </div>
+                  </section>
+                </div>
+              )}
             </>
           ) : (
-            /* ── Estado vacío ────────────────────────────────────────────── */
+            /* ── Estado vacío ────────────────────────────────────────── */
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
               <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
