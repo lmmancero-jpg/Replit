@@ -46,29 +46,26 @@ export default function History() {
     report.reportType.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  const handleExportPDF = (report: any) => {
-    // Create a temporary element to hold the HTML
+  const handleExportPDF = async (report: any) => {
     const tempDiv = document.createElement('div');
+    tempDiv.className = 'report-content';
+    tempDiv.style.cssText = 'position:absolute;left:-9999px;background:#fff;padding:20px;font-family:system-ui,sans-serif;font-size:13px;color:#1b2134;';
     tempDiv.innerHTML = report.content;
     document.body.appendChild(tempDiv);
-    
-    // Hide it from screen
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.left = '-9999px';
-
-    const element = tempDiv.querySelector('.report-document') || tempDiv;
 
     const opt = {
-      margin:       10,
-      filename:     `${report.title.replace(/\s+/g, '_')}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      margin: 8,
+      filename: `${report.title.replace(/\s+/g, '_')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     };
 
-    html2pdf().set(opt).from(element).save().then(() => {
+    try {
+      await html2pdf().set(opt).from(tempDiv).save();
+    } finally {
       document.body.removeChild(tempDiv);
-    });
+    }
   };
 
   return (
@@ -213,10 +210,9 @@ export default function History() {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto p-8">
             {selectedReport && (
-              <div 
-                className="transform origin-top mx-auto"
-                dangerouslySetInnerHTML={{ __html: selectedReport.content }} 
-              />
+              <div className="report-wrapper bg-white shadow-sm rounded-md p-6 max-w-5xl mx-auto report-content">
+                <div dangerouslySetInnerHTML={{ __html: selectedReport.content }} />
+              </div>
             )}
           </div>
         </DialogContent>
