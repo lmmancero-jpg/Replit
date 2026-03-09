@@ -7,106 +7,250 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { Layout } from "@/components/layout";
+import {
+  UploadCloud, CheckCircle2, AlertCircle, Zap, Droplets,
+  Clock, TrendingUp, Fuel, Database, BarChart2, FlameKindling,
+  ChevronRight,
+} from "lucide-react";
 import { extractProduction, extractAforo, buildResumen, fmt } from "@/lib/metricsEngine";
 import type { ProdData, AforoData, Resumen } from "@/lib/metricsEngine";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
-// ─── Paleta de colores ───────────────────────────────────────────────────────
-const COLORS = ["#0063a6", "#00a65a", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
+// ─── Paleta ──────────────────────────────────────────────────────────────────
+const P = {
+  blue:   "#2563eb",
+  green:  "#16a34a",
+  amber:  "#d97706",
+  red:    "#dc2626",
+  purple: "#7c3aed",
+  cyan:   "#0891b2",
+  rose:   "#e11d48",
+  teal:   "#0d9488",
+};
+const PALETTE = [P.blue, P.green, P.amber, P.red, P.purple, P.cyan, P.rose, P.teal];
 
-function lineDataset(label: string, data: (number | null)[], idx = 0) {
+function hex(color: string, alpha = 1): string {
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function makeGradient(color: string) {
+  return (ctx: CanvasRenderingContext2D, chartArea: { top: number; bottom: number }) => {
+    if (!chartArea) return color;
+    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+    gradient.addColorStop(0, hex(color, 0.35));
+    gradient.addColorStop(1, hex(color, 0.02));
+    return gradient;
+  };
+}
+
+function lineDataset(label: string, data: (number | null)[], idx = 0, filled = true) {
+  const color = PALETTE[idx % PALETTE.length];
   return {
     label,
     data,
-    borderColor: COLORS[idx % COLORS.length],
-    backgroundColor: COLORS[idx % COLORS.length] + "22",
+    borderColor: color,
+    backgroundColor: filled
+      ? (ctx: { chart: { ctx: CanvasRenderingContext2D; chartArea: { top: number; bottom: number } } }) =>
+          makeGradient(color)(ctx.chart.ctx, ctx.chart.chartArea)
+      : hex(color, 0.15),
+    fill: filled,
     borderWidth: 2,
-    pointRadius: 2,
-    pointHoverRadius: 4,
-    tension: 0.25,
+    pointRadius: 2.5,
+    pointHoverRadius: 5,
+    pointBackgroundColor: color,
+    tension: 0.3,
     spanGaps: true,
   };
 }
 
-function lineOpts(yLabel: string) {
+function lineOpts(yLabel: string, gridColor = "rgba(0,0,0,0.05)") {
   return {
     responsive: true,
     maintainAspectRatio: false,
     interaction: { mode: "index" as const, intersect: false },
     plugins: {
-      legend: { position: "top" as const, labels: { boxWidth: 14, boxHeight: 10, font: { size: 11 } } },
+      legend: {
+        position: "top" as const,
+        labels: { boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11, family: "system-ui" } },
+      },
+      tooltip: {
+        backgroundColor: "rgba(15,23,42,0.9)",
+        titleFont: { size: 12, weight: "bold" as const },
+        bodyFont: { size: 11 },
+        padding: 10,
+        cornerRadius: 8,
+      },
     },
     scales: {
-      x: { ticks: { font: { size: 10 } }, title: { display: true, text: "Día", font: { size: 10 } } },
-      y: { ticks: { font: { size: 10 } }, title: { display: true, text: yLabel, font: { size: 10 } } },
+      x: {
+        grid: { color: gridColor },
+        ticks: { font: { size: 10 }, color: "#6b7280" },
+        title: { display: false },
+      },
+      y: {
+        grid: { color: gridColor },
+        ticks: { font: { size: 10 }, color: "#6b7280" },
+        title: { display: true, text: yLabel, font: { size: 10 }, color: "#9ca3af" },
+      },
     },
   };
 }
 
-// ─── KPI Card ────────────────────────────────────────────────────────────────
-function KpiCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
+// ─── File upload card ────────────────────────────────────────────────────────
+function FileCard({
+  id, testId, label, hint, loaded, fileName, onChange,
+}: {
+  id: string; testId: string; label: string; hint: string;
+  loaded: boolean; fileName: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 border-l-4 border-l-blue-600 flex flex-col gap-1 min-h-[100px]">
-      <div className="text-xs font-bold uppercase tracking-wider text-gray-500">{title}</div>
-      <div className="text-2xl font-black text-gray-800 mt-1 flex-1 flex items-end">{value}</div>
-      {sub && <div className="text-sm font-semibold text-gray-500">{sub}</div>}
+    <div
+      onClick={() => ref.current?.click()}
+      className={`relative cursor-pointer rounded-xl border-2 border-dashed p-4 flex items-center gap-3 transition-all select-none
+        ${loaded
+          ? "border-green-400 bg-green-50 hover:bg-green-100"
+          : "border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50"}`}
+    >
+      <input
+        ref={ref}
+        id={id}
+        data-testid={testId}
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={onChange}
+        className="hidden"
+      />
+      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0
+        ${loaded ? "bg-green-500" : "bg-gray-200"}`}>
+        {loaded
+          ? <CheckCircle2 className="w-5 h-5 text-white" />
+          : <UploadCloud className="w-5 h-5 text-gray-500" />}
+      </div>
+      <div className="min-w-0">
+        <div className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${loaded ? "text-green-700" : "text-gray-500"}`}>
+          {label}
+        </div>
+        <div className={`text-sm font-medium truncate max-w-[200px] ${loaded ? "text-green-800" : "text-gray-400"}`}>
+          {loaded ? fileName : hint}
+        </div>
+      </div>
+      {!loaded && (
+        <div className="ml-auto text-xs text-gray-400 shrink-0">.xlsx / .xls</div>
+      )}
+    </div>
+  );
+}
+
+// ─── KPI Card ────────────────────────────────────────────────────────────────
+function KpiCard({
+  title, value, unit, sub, icon: Icon, accent = P.blue,
+}: {
+  title: string; value: string; unit?: string; sub?: string;
+  icon?: React.ElementType; accent?: string;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="h-1 w-full" style={{ background: accent }} />
+      <div className="p-4 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</span>
+          {Icon && (
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+              style={{ background: hex(accent, 0.1) }}>
+              <Icon className="w-4 h-4" style={{ color: accent }} />
+            </div>
+          )}
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-2xl font-black text-gray-900">{value}</span>
+          {unit && <span className="text-sm font-semibold text-gray-400">{unit}</span>}
+        </div>
+        {sub && <div className="text-xs text-gray-500 font-medium">{sub}</div>}
+      </div>
     </div>
   );
 }
 
 // ─── Chart Card ──────────────────────────────────────────────────────────────
-function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function ChartCard({
+  title, subtitle, accent = P.blue, height = 280, children,
+}: {
+  title: string; subtitle?: string; accent?: string; height?: number;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
-      <div className="px-4 pt-3 pb-1">
-        <div className="font-black text-sm text-gray-800">{title}</div>
-        {subtitle && <div className="text-xs text-gray-400 mt-0.5">{subtitle}</div>}
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+      <div className="flex items-start gap-3 px-4 pt-4 pb-3">
+        <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: accent }} />
+        <div>
+          <div className="font-bold text-sm text-gray-800">{title}</div>
+          {subtitle && <div className="text-xs text-gray-400 mt-0.5">{subtitle}</div>}
+        </div>
       </div>
-      <div className="relative w-full h-[300px] px-3 pb-3">
+      <div className="relative w-full px-3 pb-4" style={{ height }}>
         {children}
       </div>
     </div>
   );
 }
 
-// ─── Placeholder cuando no hay datos de aforo ─────────────────────────────────
+// ─── No aforo placeholder ─────────────────────────────────────────────────────
 function NoAforo() {
   return (
-    <div className="flex items-center justify-center h-full text-sm text-gray-400 italic">
-      Sin datos de aforo cargados
+    <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-300">
+      <Database className="w-8 h-8" />
+      <span className="text-xs font-medium">Sin datos de aforo</span>
     </div>
   );
 }
 
-// ─── Tabs ────────────────────────────────────────────────────────────────────
-type Tab = "produccion" | "combustible";
-
-// ─── Estado de procesamiento ──────────────────────────────────────────────────
-interface ProcessedData {
-  prod: ProdData;
-  aforo: AforoData | null;
-  resumen: Resumen;
+// ─── Separador de sección ─────────────────────────────────────────────────────
+function SectionHeader({ icon: Icon, title, sub, accent = P.blue }: {
+  icon: React.ElementType; title: string; sub?: string; accent?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: hex(accent, 0.12) }}>
+        <Icon className="w-4 h-4" style={{ color: accent }} />
+      </div>
+      <div>
+        <div className="font-black text-sm text-gray-800">{title}</div>
+        {sub && <div className="text-xs text-gray-400">{sub}</div>}
+      </div>
+    </div>
+  );
 }
 
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+type Tab = "produccion" | "combustible";
+interface ProcessedData { prod: ProdData; aforo: AforoData | null; resumen: Resumen; }
+
+// ─── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 export default function Metrics() {
-  const [wbProd, setWbProd] = useState<XLSX.WorkBook | null>(null);
+  const [wbProd, setWbProd]   = useState<XLSX.WorkBook | null>(null);
   const [wbAforo, setWbAforo] = useState<XLSX.WorkBook | null>(null);
-  const [sheets, setSheets] = useState<string[]>([]);
+  const [fileNameProd, setFileNameProd]   = useState("");
+  const [fileNameAforo, setFileNameAforo] = useState("");
+  const [sheets, setSheets]   = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState("");
-  const [status, setStatus] = useState("Cargue el archivo GEN y el archivo de aforo. Luego seleccione el mes y procese.");
+  const [status, setStatus]   = useState("");
   const [statusError, setStatusError] = useState(false);
   const [data, setData] = useState<ProcessedData | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("produccion");
-
-  const fileProdRef = useRef<HTMLInputElement>(null);
-  const fileAforoRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
 
   const setMsg = (msg: string, err = false) => { setStatus(msg); setStatusError(err); };
 
   const onProdFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFileNameProd(file.name);
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
@@ -114,10 +258,10 @@ export default function Metrics() {
         setWbProd(wb);
         setSheets(wb.SheetNames);
         setSelectedSheet(wb.SheetNames[0] || "");
-        setMsg("Archivo GEN cargado. Selecciona la hoja/mes.");
+        setMsg(`GEN cargado — ${wb.SheetNames.length} hoja(s) disponibles`);
       } catch {
-        setWbProd(null); setSheets([]);
-        setMsg("Error al leer el archivo de producción (GEN).", true);
+        setWbProd(null); setSheets([]); setFileNameProd("");
+        setMsg("Error al leer el archivo GEN.", true);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -126,14 +270,15 @@ export default function Metrics() {
   const onAforoFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setFileNameAforo(file.name);
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
         const wb = XLSX.read(evt.target!.result as ArrayBuffer, { type: "array", cellDates: true });
         setWbAforo(wb);
-        setMsg('Archivo de aforo cargado. (Se usa la hoja "Sondas 00 00 hrs")');
+        setMsg('Aforo cargado — hoja "Sondas 00 00 hrs"');
       } catch {
-        setWbAforo(null);
+        setWbAforo(null); setFileNameAforo("");
         setMsg("Error al leer el archivo de aforo.", true);
       }
     };
@@ -142,340 +287,390 @@ export default function Metrics() {
 
   const onProcess = useCallback(() => {
     if (!wbProd || !selectedSheet) return;
-    try {
-      const prod = extractProduction(wbProd, selectedSheet);
-      if (!prod || !prod.labels.length) {
-        setMsg("No se encontraron datos válidos en esa hoja/mes.", true); return;
+    setLoading(true);
+    setTimeout(() => {
+      try {
+        const prod = extractProduction(wbProd, selectedSheet);
+        if (!prod || !prod.labels.length) {
+          setMsg("No se encontraron datos válidos en esa hoja/mes.", true);
+          setLoading(false); return;
+        }
+        const aforo = wbAforo ? extractAforo(wbAforo, prod.targetMonth, prod.targetYear) : null;
+        const resumen = buildResumen(prod);
+        setData({ prod, aforo, resumen });
+        setMsg(`${String(prod.targetMonth).padStart(2, "0")}/${prod.targetYear} — ${prod.labels.length} días procesados${!aforo ? " (sin aforo)" : ""}`);
+      } catch (e: unknown) {
+        setMsg(`Error: ${e instanceof Error ? e.message : String(e)}`, true);
       }
-      const aforo = wbAforo ? extractAforo(wbAforo, prod.targetMonth, prod.targetYear) : null;
-      const resumen = buildResumen(prod);
-      setData({ prod, aforo, resumen });
-      setMsg(`Procesado: "${selectedSheet.trim()}" (mes ${String(prod.targetMonth).padStart(2, "0")}/${prod.targetYear}).${!aforo ? " Nota: sin datos de aforo." : ""}`);
-    } catch (e: unknown) {
-      setMsg(`Error al procesar: ${e instanceof Error ? e.message : String(e)}`, true);
-    }
+      setLoading(false);
+    }, 50);
   }, [wbProd, wbAforo, selectedSheet]);
 
   const canProcess = !!wbProd && !!wbAforo && !!selectedSheet;
 
+  const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+    { id: "produccion",  label: "Producción",         icon: Zap },
+    { id: "combustible", label: "Combustible & Tanques", icon: FlameKindling },
+  ];
+
   return (
     <Layout>
-      <div className="p-6 space-y-5 max-w-[1280px] mx-auto">
-
-        {/* ── Encabezado ─────────────────────────────────────────────── */}
-        <div>
-          <h1 className="text-xl font-black text-gray-800 tracking-wide uppercase">
-            Métricas – Central El Morro
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Producción · Clientes · Eficiencia · Combustible · Tanques
-          </p>
+      <div className="min-h-full bg-gray-50/60">
+        {/* ── Hero ───────────────────────────────────────────────────────── */}
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 px-6 py-6">
+          <div className="max-w-[1280px] mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart2 className="w-5 h-5 text-blue-400" />
+                <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Panel de Métricas</span>
+              </div>
+              <h1 className="text-white text-2xl font-black tracking-tight">Central El Morro</h1>
+              <p className="text-slate-400 text-sm mt-0.5">Producción · Clientes · Eficiencia · Combustible · Tanques</p>
+            </div>
+            {data && (
+              <div className="bg-white/10 backdrop-blur border border-white/10 rounded-xl px-5 py-3 text-white">
+                <div className="text-xs text-slate-300 uppercase tracking-widest font-bold mb-1">Período activo</div>
+                <div className="text-2xl font-black">
+                  {String(data.prod.targetMonth).padStart(2, "0")} / {data.prod.targetYear}
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5">{data.prod.labels.length} días · {data.prod.sheetName}</div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* ── Panel de controles ────────────────────────────────────────── */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
-          <div className="text-xs font-extrabold uppercase tracking-widest text-gray-400 mb-3">
-            Parámetros de consulta
-          </div>
-          <div className="flex flex-wrap gap-4 items-end">
+        <div className="max-w-[1280px] mx-auto px-6 py-6 space-y-5">
 
-            {/* GEN */}
-            <div className="flex flex-col gap-1 min-w-[220px]">
-              <label className="text-xs font-semibold text-gray-500" htmlFor="metricsProdFile">
-                Archivo de Producción (GEN):
-              </label>
-              <input
+          {/* ── Panel de carga ─────────────────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="text-xs font-extrabold uppercase tracking-widest text-gray-400 mb-4">
+              Archivos de entrada
+            </div>
+            <div className="flex flex-wrap gap-4 items-end">
+
+              <FileCard
                 id="metricsProdFile"
-                data-testid="input-metrics-gen"
-                ref={fileProdRef}
-                type="file"
-                accept=".xlsx,.xls"
+                testId="input-metrics-gen"
+                label="Producción (GEN)"
+                hint="Seleccionar archivo…"
+                loaded={!!wbProd}
+                fileName={fileNameProd}
                 onChange={onProdFile}
-                className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white min-h-[36px]"
               />
-            </div>
 
-            {/* Aforo */}
-            <div className="flex flex-col gap-1 min-w-[220px]">
-              <label className="text-xs font-semibold text-gray-500" htmlFor="metricsAforoFile">
-                Archivo de Aforo (Tanques):
-              </label>
-              <input
+              <FileCard
                 id="metricsAforoFile"
-                data-testid="input-metrics-aforo"
-                ref={fileAforoRef}
-                type="file"
-                accept=".xlsx,.xls"
+                testId="input-metrics-aforo"
+                label="Aforo (Tanques)"
+                hint="Seleccionar archivo…"
+                loaded={!!wbAforo}
+                fileName={fileNameAforo}
                 onChange={onAforoFile}
-                className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white min-h-[36px]"
               />
-            </div>
 
-            {/* Mes */}
-            <div className="flex flex-col gap-1 min-w-[200px]">
-              <label className="text-xs font-semibold text-gray-500" htmlFor="metricsSheet">
-                Mes (Hoja del GEN):
-              </label>
-              <select
-                id="metricsSheet"
-                data-testid="select-metrics-sheet"
-                value={selectedSheet}
-                onChange={e => setSelectedSheet(e.target.value)}
-                disabled={!sheets.length}
-                className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white min-h-[36px] disabled:opacity-50"
-              >
-                {!sheets.length && <option value="">-- Cargue el GEN --</option>}
-                {sheets.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-
-            {/* Botón */}
-            <button
-              data-testid="button-metrics-process"
-              onClick={onProcess}
-              disabled={!canProcess}
-              className="px-6 py-2 rounded-full bg-blue-600 text-white font-bold text-sm shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              Procesar
-            </button>
-          </div>
-
-          <div className={`text-xs mt-3 pt-3 border-t border-dashed border-gray-200 ${statusError ? "text-red-600" : "text-gray-500"}`}>
-            {status}
-          </div>
-        </div>
-
-        {data && (
-          <>
-            {/* ── Tabs ──────────────────────────────────────────────────── */}
-            <div className="flex gap-2">
-              {(["produccion", "combustible"] as Tab[]).map(tab => (
-                <button
-                  key={tab}
-                  data-testid={`tab-metrics-${tab}`}
-                  onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${activeTab === tab
-                    ? "bg-blue-600 text-white shadow"
-                    : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}
+              {/* Mes */}
+              <div className="flex flex-col gap-1.5 min-w-[180px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  Mes / Hoja
+                </label>
+                <select
+                  id="metricsSheet"
+                  data-testid="select-metrics-sheet"
+                  value={selectedSheet}
+                  onChange={e => setSelectedSheet(e.target.value)}
+                  disabled={!sheets.length}
+                  className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white min-h-[42px]
+                    disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400"
                 >
-                  {tab === "produccion" ? "Producción" : "Combustible & Tanques"}
-                </button>
-              ))}
+                  {!sheets.length && <option value="">— cargue el GEN —</option>}
+                  {sheets.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* Botón procesar */}
+              <button
+                data-testid="button-metrics-process"
+                onClick={onProcess}
+                disabled={!canProcess || loading}
+                className="flex items-center gap-2 px-7 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm
+                  shadow-lg shadow-blue-600/25 hover:bg-blue-700 hover:shadow-blue-600/35
+                  disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none
+                  transition-all duration-150 min-h-[42px]"
+              >
+                {loading ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                ) : <ChevronRight className="w-4 h-4" />}
+                {loading ? "Procesando…" : "Procesar"}
+              </button>
             </div>
 
-            {/* ══════════════════════════════════════════════════════
-                TAB: PRODUCCIÓN
-               ══════════════════════════════════════════════════════ */}
-            {activeTab === "produccion" && (
-              <div className="space-y-5">
-                {/* KPIs */}
-                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
-                  <KpiCard
-                    title="Energía total"
-                    value={`${fmt(data.resumen.energiaTotalMWh, 1)} MWh`}
-                    sub={`U1: ${fmt(data.resumen.energiaU1MWh, 1)} · U2: ${fmt(data.resumen.energiaU2MWh, 1)}`}
-                  />
-                  <KpiCard
-                    title="LANEC"
-                    value={`${fmt(data.resumen.energiaLanecMWh, 1)} MWh`}
-                    sub={`GRACA: ${fmt(data.resumen.energiaGracaMWh, 1)} MWh`}
-                  />
-                  <KpiCard
-                    title="Auxiliares"
-                    value={`${fmt(data.resumen.energiaAuxMWh, 1)} MWh`}
-                  />
-                  <KpiCard
-                    title="Horas"
-                    value={`U1 ${fmt(data.resumen.horasU1, 1)} h`}
-                    sub={`U2 ${fmt(data.resumen.horasU2, 1)} h`}
-                  />
-                  <KpiCard
-                    title="Eficiencia"
-                    value={data.resumen.eficProm != null ? `${fmt(data.resumen.eficProm, 2)} kWh/gal` : "—"}
-                    sub={`Mes ${String(data.prod.targetMonth).padStart(2, "0")}/${data.prod.targetYear}`}
-                  />
-                </div>
-
-                {/* Gráficos 2×3 + tanques */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <ChartCard title="Energía Total" subtitle="kWh generados por día">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [lineDataset("Energía total (kWh)", data.prod.etotal, 0)] }}
-                      options={lineOpts("kWh")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Energía por Cliente" subtitle="LANEC · GRACA · Auxiliares">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("LANEC (kWh)", data.prod.lanec, 0),
-                        lineDataset("GRACA (kWh)", data.prod.graca, 1),
-                        lineDataset("Auxiliares (kWh)", data.prod.aux, 2),
-                      ]}}
-                      options={lineOpts("kWh")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Energía por Unidad" subtitle="U1 (9L26) · U2 (9SW280)">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("Unidad 1 (kWh)", data.prod.e_u1, 0),
-                        lineDataset("Unidad 2 (kWh)", data.prod.e_u2, 1),
-                      ]}}
-                      options={lineOpts("kWh")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Potencia Promedio" subtitle="kW promedio por unidad (energía / horas)">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("Potencia U1 (kW)", data.prod.pot_u1, 0),
-                        lineDataset("Potencia U2 (kW)", data.prod.pot_u2, 1),
-                      ]}}
-                      options={lineOpts("kW")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Horas de Operación" subtitle="Horas diarias por unidad">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("Horas U1 (h)", data.prod.h_u1, 0),
-                        lineDataset("Horas U2 (h)", data.prod.h_u2, 1),
-                      ]}}
-                      options={lineOpts("h")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Eficiencia" subtitle="kWh por galón (columna AM)">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [lineDataset("Eficiencia (kWh/gal)", data.prod.rend, 0)] }}
-                      options={lineOpts("kWh/gal")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Tanques & Sludge" subtitle="T601/T602/T610/T611/Cisterna 2 (00H00)">
-                    {data.aforo ? (
-                      <Line
-                        data={{ labels: data.aforo.labels, datasets: [
-                          lineDataset("T601 (HFO, gal)", data.aforo.t601, 0),
-                          lineDataset("T602 (HFO, gal)", data.aforo.t602, 1),
-                          lineDataset("T610 (Diesel, gal)", data.aforo.t610, 2),
-                          lineDataset("T611 (Diesel, gal)", data.aforo.t611, 3),
-                          lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
-                        ]}}
-                        options={lineOpts("gal")}
-                      />
-                    ) : <NoAforo />}
-                  </ChartCard>
-                </div>
+            {/* Status */}
+            {status && (
+              <div className={`flex items-center gap-2 mt-4 pt-4 border-t border-gray-100 text-xs font-medium
+                ${statusError ? "text-red-600" : "text-gray-500"}`}>
+                {statusError
+                  ? <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-green-500" />}
+                {status}
               </div>
             )}
-
-            {/* ══════════════════════════════════════════════════════
-                TAB: COMBUSTIBLE & TANQUES
-               ══════════════════════════════════════════════════════ */}
-            {activeTab === "combustible" && (
-              <div className="space-y-5">
-                {/* Encabezado tipo informe */}
-                <div className="bg-gray-900 text-white rounded-xl px-5 py-4">
-                  <div className="font-black text-base tracking-wide">
-                    Central El Morro — Informe Gerencial de Combustible
-                  </div>
-                  <div className="flex flex-wrap gap-5 mt-2 text-xs opacity-90">
-                    <span>Mes analizado: <strong>{String(data.prod.targetMonth).padStart(2, "0")}/{data.prod.targetYear}</strong></span>
-                    <span>Fecha emisión: <strong>{new Date().toLocaleDateString("es-EC")}</strong></span>
-                  </div>
-                </div>
-
-                {/* KPIs combustible */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <KpiCard title="HFO total consumido del mes" value={`${fmt(data.resumen.hfoGal, 0)} gal`} />
-                  <KpiCard title="Diésel total consumido del mes" value={`${fmt(data.resumen.doGal, 0)} gal`} />
-                  <KpiCard title="Días con registro" value={`${data.resumen.dias}`} />
-                </div>
-
-                {/* Gráficos 2×3 */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  <ChartCard title="Consumo total HFO vs Diésel" subtitle="Galones diarios totales de combustible">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("HFO total (gal)", data.prod.hfoTot.map(v => v || null), 0),
-                        lineDataset("Diésel total (gal)", data.prod.doTot.map(v => v || null), 1),
-                      ]}}
-                      options={lineOpts("gal")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Consumo HFO por Unidad" subtitle="Reparto HFO entre G1 y G2 según energía diaria">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("HFO G1 (gal)", data.prod.hfoG1.map(v => v || null), 0),
-                        lineDataset("HFO G2 (gal)", data.prod.hfoG2.map(v => v || null), 1),
-                      ]}}
-                      options={lineOpts("gal")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Consumo Diésel por Unidad" subtitle="Reparto Diésel entre G1 y G2 según energía diaria">
-                    <Line
-                      data={{ labels: data.prod.labels, datasets: [
-                        lineDataset("Diésel G1 (gal)", data.prod.doG1.map(v => v || null), 0),
-                        lineDataset("Diésel G2 (gal)", data.prod.doG2.map(v => v || null), 1),
-                      ]}}
-                      options={lineOpts("gal")}
-                    />
-                  </ChartCard>
-
-                  <ChartCard title="Tanques HFO T601 y T602" subtitle="Volumen (gal) a las 00H00">
-                    {data.aforo ? (
-                      <Line
-                        data={{ labels: data.aforo.labels, datasets: [
-                          lineDataset("T601 (HFO, gal)", data.aforo.t601, 0),
-                          lineDataset("T602 (HFO, gal)", data.aforo.t602, 1),
-                        ]}}
-                        options={lineOpts("gal")}
-                      />
-                    ) : <NoAforo />}
-                  </ChartCard>
-
-                  <ChartCard title="Tanques Diésel T610 y T611" subtitle="Volumen (gal) a las 00H00">
-                    {data.aforo ? (
-                      <Line
-                        data={{ labels: data.aforo.labels, datasets: [
-                          lineDataset("T610 (Diesel, gal)", data.aforo.t610, 2),
-                          lineDataset("T611 (Diesel, gal)", data.aforo.t611, 3),
-                        ]}}
-                        options={lineOpts("gal")}
-                      />
-                    ) : <NoAforo />}
-                  </ChartCard>
-
-                  <ChartCard title="Cisterna 2 (Sludge)" subtitle='Volumen (gal) registrado como "CISTERNA 2"'>
-                    {data.aforo ? (
-                      <Line
-                        data={{ labels: data.aforo.labels, datasets: [
-                          lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
-                        ]}}
-                        options={lineOpts("gal")}
-                      />
-                    ) : <NoAforo />}
-                  </ChartCard>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Estado vacío inicial */}
-        {!data && (
-          <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
-            <svg className="w-16 h-16 mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <p className="text-base font-semibold">Cargue los archivos y procese para ver las gráficas</p>
-            <p className="text-sm mt-1">GEN (producción) + Aforo (tanques) → seleccione el mes → Procesar</p>
           </div>
-        )}
+
+          {/* ── Resultados ─────────────────────────────────────────────────── */}
+          {data ? (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+                {TABS.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    data-testid={`tab-metrics-${id}`}
+                    onClick={() => setActiveTab(id)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all
+                      ${activeTab === id
+                        ? "bg-white shadow text-gray-900"
+                        : "text-gray-500 hover:text-gray-700"}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* ══ TAB PRODUCCIÓN ══════════════════════════════════════════ */}
+              {activeTab === "produccion" && (
+                <div className="space-y-6">
+
+                  {/* KPIs energía */}
+                  <section>
+                    <SectionHeader icon={Zap} title="Energía del período" sub="Totales y distribución mensual" accent={P.blue} />
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+                      <KpiCard
+                        icon={Zap} accent={P.blue}
+                        title="Energía total"
+                        value={fmt(data.resumen.energiaTotalMWh, 1)} unit="MWh"
+                        sub={`U1 ${fmt(data.resumen.energiaU1MWh, 1)} · U2 ${fmt(data.resumen.energiaU2MWh, 1)} MWh`}
+                      />
+                      <KpiCard
+                        icon={TrendingUp} accent={P.green}
+                        title="LANEC"
+                        value={fmt(data.resumen.energiaLanecMWh, 1)} unit="MWh"
+                        sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? (data.resumen.energiaLanecMWh / data.resumen.energiaTotalMWh) * 100 : 0, 1)}% del total`}
+                      />
+                      <KpiCard
+                        icon={TrendingUp} accent={P.amber}
+                        title="GRACA"
+                        value={fmt(data.resumen.energiaGracaMWh, 1)} unit="MWh"
+                        sub={`${fmt(data.resumen.energiaTotalMWh > 0 ? (data.resumen.energiaGracaMWh / data.resumen.energiaTotalMWh) * 100 : 0, 1)}% del total`}
+                      />
+                      <KpiCard
+                        icon={Clock} accent={P.purple}
+                        title="Horas operación"
+                        value={fmt(data.resumen.horasU1, 0)} unit="h U1"
+                        sub={`U2: ${fmt(data.resumen.horasU2, 0)} h`}
+                      />
+                      <KpiCard
+                        icon={TrendingUp} accent={P.cyan}
+                        title="Eficiencia"
+                        value={data.resumen.eficProm != null ? fmt(data.resumen.eficProm, 2) : "—"} unit="kWh/gal"
+                        sub={`Mes ${String(data.prod.targetMonth).padStart(2, "0")}/${data.prod.targetYear}`}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Gráficos producción */}
+                  <section>
+                    <SectionHeader icon={BarChart2} title="Gráficas diarias" sub="Tendencias del período seleccionado" accent={P.blue} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <ChartCard title="Energía Total" subtitle="kWh generados por día" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Energía total (kWh)", data.prod.etotal, 0)] }} options={lineOpts("kWh")} />
+                      </ChartCard>
+
+                      <ChartCard title="Energía por Cliente" subtitle="LANEC · GRACA · Auxiliares" accent={P.green}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("LANEC (kWh)", data.prod.lanec, 0),
+                          lineDataset("GRACA (kWh)", data.prod.graca, 1),
+                          lineDataset("Auxiliares (kWh)", data.prod.aux, 2),
+                        ]}} options={lineOpts("kWh")} />
+                      </ChartCard>
+
+                      <ChartCard title="Energía por Unidad" subtitle="U1 (9L26) · U2 (9SW280)" accent={P.purple}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("Unidad 1 (kWh)", data.prod.e_u1, 0),
+                          lineDataset("Unidad 2 (kWh)", data.prod.e_u2, 4),
+                        ]}} options={lineOpts("kWh")} />
+                      </ChartCard>
+
+                      <ChartCard title="Potencia Promedio" subtitle="kW por unidad (energía / horas)" accent={P.amber}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("Potencia U1 (kW)", data.prod.pot_u1, 2),
+                          lineDataset("Potencia U2 (kW)", data.prod.pot_u2, 3),
+                        ]}} options={lineOpts("kW")} />
+                      </ChartCard>
+
+                      <ChartCard title="Horas de Operación" subtitle="Horas diarias por unidad" accent={P.cyan}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("Horas U1 (h)", data.prod.h_u1, 5),
+                          lineDataset("Horas U2 (h)", data.prod.h_u2, 1),
+                        ]}} options={lineOpts("h")} />
+                      </ChartCard>
+
+                      <ChartCard title="Eficiencia" subtitle="kWh por galón consumido" accent={P.teal}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("Eficiencia (kWh/gal)", data.prod.rend, 7),
+                        ]}} options={lineOpts("kWh/gal")} />
+                      </ChartCard>
+                    </div>
+                  </section>
+
+                  {/* Tanques en producción */}
+                  {data.aforo && (
+                    <section>
+                      <SectionHeader icon={Database} title="Niveles de tanques" sub="Volúmenes a las 00H00 diarios" accent={P.cyan} />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ChartCard title="Tanques & Sludge" subtitle="T601 · T602 · T610 · T611 · Cisterna 2" accent={P.cyan} height={300}>
+                          <Line data={{ labels: data.aforo.labels, datasets: [
+                            lineDataset("T601 HFO (gal)", data.aforo.t601, 0),
+                            lineDataset("T602 HFO (gal)", data.aforo.t602, 1),
+                            lineDataset("T610 Diesel (gal)", data.aforo.t610, 2),
+                            lineDataset("T611 Diesel (gal)", data.aforo.t611, 3),
+                            lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
+                          ]}} options={lineOpts("gal")} />
+                        </ChartCard>
+                      </div>
+                    </section>
+                  )}
+                </div>
+              )}
+
+              {/* ══ TAB COMBUSTIBLE ═════════════════════════════════════════ */}
+              {activeTab === "combustible" && (
+                <div className="space-y-6">
+
+                  {/* Banda de identificación */}
+                  <div className="rounded-xl overflow-hidden border border-slate-200">
+                    <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                      <div>
+                        <div className="text-white font-black text-sm tracking-wide">
+                          Informe Gerencial de Combustible — Central El Morro
+                        </div>
+                        <div className="text-slate-400 text-xs mt-0.5">
+                          Mes: <strong className="text-slate-200">{String(data.prod.targetMonth).padStart(2, "0")}/{data.prod.targetYear}</strong>
+                          &nbsp;·&nbsp; Emisión: <strong className="text-slate-200">{new Date().toLocaleDateString("es-EC")}</strong>
+                        </div>
+                      </div>
+                      <Fuel className="w-8 h-8 text-amber-400 opacity-70" />
+                    </div>
+                  </div>
+
+                  {/* KPIs combustible */}
+                  <section>
+                    <SectionHeader icon={Droplets} title="Consumo del período" sub="Totales mensuales de combustible" accent={P.amber} />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <KpiCard icon={Droplets} accent={P.blue}
+                        title="HFO consumido"
+                        value={fmt(data.resumen.hfoGal, 0)} unit="gal"
+                        sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? (data.resumen.hfoGal / (data.resumen.hfoGal + data.resumen.doGal)) * 100 : 0, 1)}% del total`}
+                      />
+                      <KpiCard icon={Fuel} accent={P.amber}
+                        title="Diésel consumido"
+                        value={fmt(data.resumen.doGal, 0)} unit="gal"
+                        sub={`${fmt(data.resumen.hfoGal + data.resumen.doGal > 0 ? (data.resumen.doGal / (data.resumen.hfoGal + data.resumen.doGal)) * 100 : 0, 1)}% del total`}
+                      />
+                      <KpiCard icon={BarChart2} accent={P.green}
+                        title="Días con registro"
+                        value={`${data.resumen.dias}`} unit="días"
+                        sub={`Total: ${fmt(data.resumen.hfoGal + data.resumen.doGal, 0)} gal`}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Gráficas combustible */}
+                  <section>
+                    <SectionHeader icon={FlameKindling} title="Consumo por tipo y unidad" sub="Prorrateo por energía generada" accent={P.amber} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      <ChartCard title="Consumo total HFO vs Diésel" subtitle="Galones diarios totales" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("HFO total (gal)", data.prod.hfoTot.map(v => v || null), 0),
+                          lineDataset("Diésel total (gal)", data.prod.doTot.map(v => v || null), 2),
+                        ]}} options={lineOpts("gal")} />
+                      </ChartCard>
+
+                      <ChartCard title="HFO por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("HFO G1 (gal)", data.prod.hfoG1.map(v => v || null), 0),
+                          lineDataset("HFO G2 (gal)", data.prod.hfoG2.map(v => v || null), 5),
+                        ]}} options={lineOpts("gal")} />
+                      </ChartCard>
+
+                      <ChartCard title="Diésel por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.amber}>
+                        <Line data={{ labels: data.prod.labels, datasets: [
+                          lineDataset("Diésel G1 (gal)", data.prod.doG1.map(v => v || null), 2),
+                          lineDataset("Diésel G2 (gal)", data.prod.doG2.map(v => v || null), 4),
+                        ]}} options={lineOpts("gal")} />
+                      </ChartCard>
+
+                      <ChartCard title="Tanques HFO — T601 y T602" subtitle="Volumen (gal) a las 00H00" accent={P.blue}>
+                        {data.aforo
+                          ? <Line data={{ labels: data.aforo.labels, datasets: [
+                              lineDataset("T601 (HFO, gal)", data.aforo.t601, 0),
+                              lineDataset("T602 (HFO, gal)", data.aforo.t602, 5),
+                            ]}} options={lineOpts("gal")} />
+                          : <NoAforo />}
+                      </ChartCard>
+
+                      <ChartCard title="Tanques Diésel — T610 y T611" subtitle="Volumen (gal) a las 00H00" accent={P.amber}>
+                        {data.aforo
+                          ? <Line data={{ labels: data.aforo.labels, datasets: [
+                              lineDataset("T610 (Diesel, gal)", data.aforo.t610, 2),
+                              lineDataset("T611 (Diesel, gal)", data.aforo.t611, 3),
+                            ]}} options={lineOpts("gal")} />
+                          : <NoAforo />}
+                      </ChartCard>
+
+                      <ChartCard title="Cisterna 2 — Sludge" subtitle='Volumen registrado como "CISTERNA 2"' accent={P.purple}>
+                        {data.aforo
+                          ? <Line data={{ labels: data.aforo.labels, datasets: [
+                              lineDataset("Cisterna 2 (gal)", data.aforo.cisterna2, 4),
+                            ]}} options={lineOpts("gal")} />
+                          : <NoAforo />}
+                      </ChartCard>
+                    </div>
+                  </section>
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── Estado vacío ────────────────────────────────────────────── */
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mb-5">
+                  <BarChart2 className="w-8 h-8 text-blue-400" />
+                </div>
+                <h3 className="text-base font-bold text-gray-700 mb-2">Sin datos procesados</h3>
+                <p className="text-sm text-gray-400 max-w-sm mb-6">
+                  Cargue el archivo GEN y el de Aforo, seleccione el mes y presione Procesar para ver todas las gráficas.
+                </p>
+                <div className="flex items-center gap-3 text-xs text-gray-400">
+                  <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <UploadCloud className="w-3.5 h-3.5" /> GEN
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <UploadCloud className="w-3.5 h-3.5" /> Aforo
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-blue-600">
+                    <ChevronRight className="w-3.5 h-3.5" /> Procesar
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );
