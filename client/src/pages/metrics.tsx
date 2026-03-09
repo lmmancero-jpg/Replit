@@ -15,6 +15,7 @@ import {
 import { extractProduction, extractAforo, buildResumen, fmt } from "@/lib/metricsEngine";
 import type { ProdData, AforoData, Resumen } from "@/lib/metricsEngine";
 import { useToast } from "@/hooks/use-toast";
+import { exportMetricsPDF } from "@/lib/pdfExporter";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
@@ -430,64 +431,9 @@ export default function Metrics() {
     await new Promise(r => setTimeout(r, 3000));
 
     try {
-      // html2canvas + jsPDF directamente: sin clonar DOM → canvas de Chart.js se preserva.
-      // Cada sección [data-pdf-section] se captura individualmente → sin cortes en gráficos.
-      const html2canvas = (await import("html2canvas")).default;
-      const { jsPDF }   = await import("jspdf");
-
       if (!printRef.current) return;
-      const period  = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
-      const sections = Array.from(
-        printRef.current.querySelectorAll<HTMLElement>("[data-pdf-section]")
-      );
-
-      // A4 landscape: 297 × 210 mm
-      const pdfW     = 297;
-      const pdfH     = 210;
-      const margin   = 6;
-      const contentW = pdfW - margin * 2;
-      const contentH = pdfH - margin * 2;
-
-      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
-      let firstPage = true;
-
-      for (const section of sections) {
-        // Capturar la sección como canvas a alta resolución
-        const canvas = await html2canvas(section, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          width: 1122,
-          windowWidth: 1122,
-          backgroundColor: "#ffffff",
-        });
-
-        const imgW        = canvas.width;
-        const imgH        = canvas.height;
-        const pxPerMmW    = imgW / contentW;
-        const pageHeightPx = contentH * pxPerMmW;
-
-        let yPx = 0;
-        while (yPx < imgH) {
-          if (!firstPage) pdf.addPage();
-          firstPage = false;
-
-          const sliceH   = Math.min(pageHeightPx, imgH - yPx);
-          const sliceMmH = sliceH / pxPerMmW;
-
-          const slice = document.createElement("canvas");
-          slice.width  = imgW;
-          slice.height = Math.ceil(sliceH);
-          const ctx = slice.getContext("2d")!;
-          ctx.drawImage(canvas, 0, yPx, imgW, Math.ceil(sliceH), 0, 0, imgW, Math.ceil(sliceH));
-
-          pdf.addImage(slice.toDataURL("image/png"), "PNG", margin, margin, contentW, sliceMmH);
-          yPx += pageHeightPx;
-        }
-      }
-
-      pdf.save(`Metricas_ElMorro_${period}.pdf`);
+      const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
+      await exportMetricsPDF(printRef.current, period);
       toast({ title: "PDF generado", description: "Producción + Combustible exportados correctamente." });
     } catch (err) {
       console.error("PDF metrics error:", err);

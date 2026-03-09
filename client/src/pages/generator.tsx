@@ -19,6 +19,7 @@ import {
   generarInformeMensual,
   generarInformeFacturacion,
 } from "@/lib/reportEngine";
+import { exportReportPDF } from "@/lib/pdfExporter";
 
 const generatorSchema = z.object({
   reportDate: z.string().min(1, "La fecha es requerida"),
@@ -125,31 +126,18 @@ export default function Generator() {
     if (!previewRef.current || !generatedHtml) return;
     const data = form.getValues();
     const date = currentReportType === "diario" ? data.reportDate : data.reportMonth;
+    const typeLabel =
+      currentReportType === "facturacion" ? "Facturacion"
+      : currentReportType === "mensual"   ? "Reporte_Mensual"
+      : "Reporte_Diario";
 
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      const element = previewRef.current.querySelector(".report-wrapper");
+      const element = previewRef.current.querySelector<HTMLElement>(".report-wrapper");
       if (!element) return;
-
-      const opt = {
-        margin: [8, 8, 8, 8],
-        filename: `${currentReportType === "facturacion" ? "Facturacion" : currentReportType === "mensual" ? "Reporte_Mensual" : "Reporte_Diario"}_ElMorro_${date}.pdf`,
-        image: { type: "png" },
-        html2canvas: {
-          scale: 2,
-          scrollY: 0,
-          useCORS: true,
-          allowTaint: true,
-          letterRendering: true,
-          windowWidth: 1250,
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] },
-      };
-
-      await html2pdf().set(opt).from(element).save();
+      await exportReportPDF(element, `${typeLabel}_ElMorro_${date}.pdf`);
       toast({ title: "PDF generado", description: "El archivo se está descargando." });
     } catch (err) {
+      console.error("PDF export error:", err);
       toast({ title: "Error al generar PDF", description: "Intenta de nuevo.", variant: "destructive" });
     }
   };

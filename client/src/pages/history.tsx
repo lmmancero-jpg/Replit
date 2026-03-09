@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Trash2, Eye, FileText, Search, Download } from "lucide-react";
-import html2pdf from "html2pdf.js";
+import { exportReportPDF } from "@/lib/pdfExporter";
 
 import { useReports, useDeleteReport } from "@/hooks/use-reports";
 import { Layout } from "@/components/layout";
@@ -47,22 +47,18 @@ export default function History() {
   ) || [];
 
   const handleExportPDF = async (report: any) => {
-    const tempDiv = document.createElement('div');
-    tempDiv.className = 'report-content';
-    tempDiv.style.cssText = 'position:absolute;left:-9999px;background:#fff;padding:20px;font-family:system-ui,sans-serif;font-size:13px;color:#1b2134;';
+    // Montar el contenido en un div visible pero fuera de pantalla
+    const tempDiv = document.createElement("div");
+    tempDiv.className = "report-content report-wrapper";
+    tempDiv.style.cssText =
+      "position:fixed;top:0;left:0;width:794px;background:#fff;" +
+      "padding:20px;font-family:system-ui,sans-serif;font-size:13px;" +
+      "color:#1b2134;z-index:9999;pointer-events:none;";
     tempDiv.innerHTML = report.content;
     document.body.appendChild(tempDiv);
 
-    const opt = {
-      margin: 8,
-      filename: `${report.title.replace(/\s+/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    };
-
     try {
-      await html2pdf().set(opt).from(tempDiv).save();
+      await exportReportPDF(tempDiv, `${report.title.replace(/\s+/g, "_")}.pdf`);
     } finally {
       document.body.removeChild(tempDiv);
     }

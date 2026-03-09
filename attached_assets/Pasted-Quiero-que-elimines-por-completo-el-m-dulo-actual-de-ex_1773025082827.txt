@@ -1,0 +1,97 @@
+Quiero que elimines por completo el módulo actual de exportación a PDF y lo reescribas desde cero. No reutilices la lógica anterior. El nuevo módulo debe estar diseñado para generar PDFs profesionales, compactos, limpios y con calidad de impresión alta, tanto para los informes como para las métricas.
+
+OBJETIVO GENERAL
+Crear un nuevo módulo de exportación a PDF robusto y bien estructurado que garantice:
+- alta nitidez en tablas, textos y gráficos
+- excelente legibilidad
+- correcta paginación
+- uso eficiente del espacio para reducir la cantidad de hojas
+- presentación profesional tipo informe gerencial/técnico
+
+REQUERIMIENTOS PRINCIPALES
+
+1. REESCRITURA COMPLETA
+- Borra el módulo actual de exportación a PDF.
+- Reescríbelo desde cero.
+- No hagas parches ni ajustes sobre el código anterior.
+- Organiza el nuevo código de forma modular, mantenible y clara.
+
+2. CALIDAD VISUAL DEL PDF
+- El PDF debe generarse con calidad alta de impresión.
+- Las tablas, bordes, textos y gráficos deben verse nítidos, sin pixelación ni borrosidad.
+- Los colores de encabezados, celdas, bordes y fondos deben exportarse con buena definición y contraste.
+- Usa renderizado de alta resolución para cualquier gráfico o elemento visual.
+- Evita compresión excesiva que degrade la calidad.
+
+3. TABLAS DE LOS INFORMES
+- Las tablas deben exportarse de forma clara, compacta y profesional.
+- Ninguna fila puede cortarse entre páginas.
+- Si una fila no cabe completa, debe pasar íntegra a la página siguiente.
+- Los textos deben quedar claramente contenidos dentro de sus celdas.
+- Ninguna línea de la tabla debe atravesar letras o números.
+- El texto nunca debe verse cortado por los bordes de la fila o por líneas horizontales.
+- Ajusta padding, altura de fila, alineación vertical y line-height para asegurar legibilidad.
+- Los encabezados deben verse sólidos, bien alineados y repetirse cuando una tabla continúe en otra página, si aplica.
+- Mantén bordes definidos y proporcionados.
+- Las columnas deben ajustarse inteligentemente para ocupar bien el ancho disponible.
+
+4. TIPOGRAFÍA Y DENSIDAD DE INFORMACIÓN
+- El tamaño de letra debe ser lo suficientemente pequeño para ahorrar espacio, pero lo bastante grande para mantener excelente legibilidad.
+- Optimiza el diseño para que los informes ocupen la menor cantidad de hojas posible sin sacrificar claridad.
+- Usa jerarquía tipográfica profesional para títulos, subtítulos, encabezados de tabla, contenido y notas.
+- Evita espacios en blanco innecesarios, márgenes excesivos y separaciones demasiado grandes.
+- Prioriza una composición compacta y elegante.
+
+5. SALTOS DE PÁGINA
+- Controla explícitamente los saltos de página.
+- Evita que tablas, bloques importantes o gráficos queden partidos de forma incorrecta.
+- No permitas cortes visuales feos al final de página.
+- Mantén juntos los bloques que deban leerse como una unidad.
+- Antes de renderizar una tabla o gráfica, valida si cabe en la página actual; si no cabe, envíala a la siguiente.
+
+6. GRÁFICOS EN INFORMES Y MÉTRICAS
+- Todas las gráficas deben exportarse en alta calidad.
+- Deben verse nítidas en pantalla y en impresión.
+- No deben quedar cortadas por saltos de página.
+- Si una gráfica no cabe completa, debe pasar entera a la siguiente página.
+- Mantén títulos, ejes, leyendas y etiquetas legibles.
+- Ajusta márgenes, escalado y tamaño para aprovechar el espacio sin perder claridad.
+- Evita que una gráfica se deforme o se comprima excesivamente.
+
+7. MÓDULO DE MÉTRICAS
+- El PDF de métricas debe recibir el mismo tratamiento de calidad que los informes.
+- Las gráficas de métricas deben priorizar alta resolución y correcta paginación.
+- Si existen varias métricas, distribúyelas de forma ordenada y profesional.
+- Evita que una gráfica quede separada de su título o de su bloque descriptivo.
+
+8. ROBUSTEZ TÉCNICA
+- Implementa el módulo de forma estable y predecible.
+- Debe funcionar bien con tablas largas, textos medianos y múltiples gráficos.
+- Debe contemplar casos de contenido variable.
+- Evita soluciones frágiles o dependientes de valores fijos si se puede resolver de forma dinámica.
+- Documenta en el código las decisiones importantes de layout y paginación.
+
+9. RESULTADO ESPERADO
+El resultado final debe ser:
+- un módulo nuevo
+- limpio y bien organizado
+- listo para producción
+- con exportación PDF de calidad profesional
+- sin cortes de filas
+- sin texto invadido por bordes
+- con tablas y gráficos nítidos
+- con buena administración de espacio
+- y con paginación correcta
+
+10. ENTREGA
+Necesito que hagas lo siguiente:
+- borres el módulo actual
+- crees el nuevo módulo desde cero
+- integres el nuevo exportador con la app
+- verifiques que los informes y métricas se exporten correctamente
+- dejes el código completo final, no solo fragmentos
+- explica brevemente la estructura del nuevo módulo y cómo controla la calidad, la nitidez y los saltos de página
+
+IMPORTANTE
+No quiero una mejora incremental del módulo actual.
+Quiero una sustitución completa del módulo de exportación PDF, rediseñada desde cero con estas especificaciones.
