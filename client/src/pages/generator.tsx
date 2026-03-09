@@ -132,11 +132,23 @@ export default function Generator() {
       if (!element) return;
 
       const opt = {
-        margin: 5,
+        margin: [8, 8, 8, 8],
         filename: `${currentReportType === "facturacion" ? "Facturacion" : currentReportType === "mensual" ? "Reporte_Mensual" : "Reporte_Diario"}_ElMorro_${date}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, scrollY: 0 },
+        image: { type: "png" },
+        html2canvas: {
+          scale: 3,
+          scrollY: 0,
+          useCORS: true,
+          allowTaint: true,
+          letterRendering: true,
+          windowWidth: 900,
+        },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: {
+          mode: ["css", "legacy"],
+          before: ".rpt-section-break",
+          avoid: ["table", ".rpt-fuel-box", ".rpt-kpi-row", ".rpt-nota-tecnica", ".rpt-obs"],
+        },
       };
 
       await html2pdf().set(opt).from(element).save();

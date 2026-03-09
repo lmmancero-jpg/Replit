@@ -539,6 +539,58 @@
   color: #374151;
 }
 
+/* ── SALTOS DE PÁGINA (PDF EXPORT) ──────── */
+
+.report-content .rpt-section-break {
+  break-before: page;
+  page-break-before: always;
+  height: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  display: block;
+}
+
+.report-content .rpt-section-title {
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.report-content .data-table {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-kpi-row {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-kpi-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-fuel-box {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-nota-tecnica {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-obs {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.report-content .rpt-notice {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 /* ===== ELEVATE SYSTEM ===== */
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
