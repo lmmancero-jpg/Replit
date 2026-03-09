@@ -141,9 +141,10 @@ export default function Generator() {
           useCORS: true,
           allowTaint: true,
           letterRendering: true,
-          windowWidth: 900,
+          windowWidth: 1050,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] },
       };
 
       await html2pdf().set(opt).from(element).save();

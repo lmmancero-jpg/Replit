@@ -539,6 +539,12 @@
   color: #374151;
 }
 
+/* ── TABLE ROW PAGE-BREAK PROTECTION ────── */
+.report-content .data-table tr {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 /* ===== ELEVATE SYSTEM ===== */
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {

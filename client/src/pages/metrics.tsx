@@ -448,30 +448,64 @@ export default function Metrics() {
     await new Promise(r => setTimeout(r, 3000));
 
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
-      const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
-      const opt = {
-        margin: [6, 6, 6, 6],
-        filename: `Metricas_ElMorro_${period}.pdf`,
-        image: { type: "png" },
-        html2canvas: {
-          scale: 2,
-          scrollY: 0,
-          scrollX: 0,
-          useCORS: true,
-          logging: false,
-          allowTaint: true,
-          width: 1122,
-          windowWidth: 1122,
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-      };
+      // Usamos html2canvas + jsPDF directamente para evitar que html2pdf
+      // clone el DOM (los canvas de Chart.js quedan en blanco al clonarse)
+      const html2canvas = (await import("html2canvas")).default;
+      const { jsPDF }   = await import("jspdf");
 
-      if (printRef.current) {
-        await html2pdf().set(opt).from(printRef.current).save();
-        toast({ title: "PDF generado", description: "Producción + Combustible en un solo documento." });
+      if (!printRef.current) return;
+      const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
+
+      const canvas = await html2canvas(printRef.current, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        width: 1122,
+        windowWidth: 1122,
+      });
+
+      // A4 landscape: 297 × 210 mm
+      const pdfW   = 297;
+      const pdfH   = 210;
+      const margin = 6;
+      const contentW = pdfW - margin * 2;  // mm
+      const contentH = pdfH - margin * 2;  // mm
+
+      // Altura del canvas (en px, unscaled) que cabe en una página
+      const imgW          = canvas.width;   // px (scale×1122)
+      const imgH          = canvas.height;  // px total
+      const pxPerMmW      = imgW / contentW;
+      const pageHeightPx  = contentH * pxPerMmW;  // px por página de contenido
+
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "landscape" });
+
+      let yPx = 0;  // píxel superior del trozo actual
+      let pageIndex = 0;
+
+      while (yPx < imgH) {
+        if (pageIndex > 0) pdf.addPage();
+
+        const sliceH   = Math.min(pageHeightPx, imgH - yPx);
+        const sliceMmH = sliceH / pxPerMmW;
+
+        // Recortar sólo la franja correspondiente a esta página
+        const slice    = document.createElement("canvas");
+        slice.width    = imgW;
+        slice.height   = Math.ceil(sliceH);
+        const ctx      = slice.getContext("2d")!;
+        ctx.drawImage(canvas, 0, yPx, imgW, Math.ceil(sliceH), 0, 0, imgW, Math.ceil(sliceH));
+
+        pdf.addImage(slice.toDataURL("image/png"), "PNG", margin, margin, contentW, sliceMmH);
+
+        yPx += pageHeightPx;
+        pageIndex++;
       }
-    } catch {
+
+      pdf.save(`Metricas_ElMorro_${period}.pdf`);
+      toast({ title: "PDF generado", description: "Producción + Combustible exportados correctamente." });
+    } catch (err) {
+      console.error("PDF metrics error:", err);
       toast({ title: "Error al generar PDF", description: "Intenta de nuevo.", variant: "destructive" });
     } finally {
       setShowPrintContainer(false);
