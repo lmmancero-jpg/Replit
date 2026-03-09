@@ -920,17 +920,30 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
   const sumGenKwh = g1 + g2;
   const shareG1 = sumGenKwh > 0 ? (g1 / sumGenKwh) * 100 : 0;
   const shareG2 = sumGenKwh > 0 ? (g2 / sumGenKwh) * 100 : 0;
-  // Prorrateo HFO/DO por unidad (pesos mensuales)
-  const wm1 = sumGenKwh > 0 ? g1 / sumGenKwh : (u1_mes > 0 ? u1_mes / (u1_mes + u2_mes || 1) : 0);
-  const wm2 = sumGenKwh > 0 ? g2 / sumGenKwh : (u2_mes > 0 ? u2_mes / (u1_mes + u2_mes || 1) : 0);
-  const hfo_u1m = hfo * wm1;  const dsl_u1m = dsl * wm1;  const fuel_u1m = fuelTot * wm1;
-  const hfo_u2m = hfo * wm2;  const dsl_u2m = dsl * wm2;  const fuel_u2m = fuelTot * wm2;
-  const galh_u1m     = u1_mes > 0 ? fuel_u1m / u1_mes : NaN;
-  const galh_hfo_u1m = u1_mes > 0 ? hfo_u1m  / u1_mes : NaN;
-  const galh_do_u1m  = u1_mes > 0 ? dsl_u1m  / u1_mes : NaN;
-  const galh_u2m     = u2_mes > 0 ? fuel_u2m / u2_mes : NaN;
-  const galh_hfo_u2m = u2_mes > 0 ? hfo_u2m  / u2_mes : NaN;
-  const galh_do_u2m  = u2_mes > 0 ? dsl_u2m  / u2_mes : NaN;
+  // ─── Prorrateo por unidad: suma de prorrateos diarios ────────────────────────
+  // Método idéntico al Análisis Ejecutivo de Combustible para garantizar
+  // consistencia entre la tabla "Combustible / Unidad" y el análisis.
+  // Un único peso mensual (g1/g2 total) da resultados distintos cuando la
+  // proporción generador-1 / generador-2 varía día a día.
+  const monthlyFuelMetrics = getAllFuelMetrics(wbProd).filter(
+    d => d.date.getFullYear() === year && d.date.getMonth() === monthIndex,
+  );
+  let hfo_u1m = 0, dsl_u1m = 0, fuel_u1m = 0;
+  let hfo_u2m = 0, dsl_u2m = 0, fuel_u2m = 0;
+  // h1_fuel / h2_fuel: horas de los días con registro completo (kWh+comb.+horas)
+  // Son las mismas horas que usa el Análisis Ejecutivo como denominador en gal/h.
+  let h1_fuel = 0, h2_fuel = 0;
+  for (const d of monthlyFuelMetrics) {
+    hfo_u1m += d.hfo_u1;  dsl_u1m += d.dsl_u1;  fuel_u1m += d.fuel_u1;
+    hfo_u2m += d.hfo_u2;  dsl_u2m += d.dsl_u2;  fuel_u2m += d.fuel_u2;
+    h1_fuel += d.h1;       h2_fuel += d.h2;
+  }
+  const galh_u1m     = h1_fuel > 0 ? fuel_u1m / h1_fuel : NaN;
+  const galh_hfo_u1m = h1_fuel > 0 ? hfo_u1m  / h1_fuel : NaN;
+  const galh_do_u1m  = h1_fuel > 0 ? dsl_u1m  / h1_fuel : NaN;
+  const galh_u2m     = h2_fuel > 0 ? fuel_u2m / h2_fuel : NaN;
+  const galh_hfo_u2m = h2_fuel > 0 ? hfo_u2m  / h2_fuel : NaN;
+  const galh_do_u2m  = h2_fuel > 0 ? dsl_u2m  / h2_fuel : NaN;
   const mesTexto = getSheetNameFromDate(fechaCorte);
   const textoPeriodo = ultimoDia > 0 ? `${mesTexto} (hasta el día ${ultimoDia})` : mesTexto;
   const diasPeriodo = ultimoDia > 0 ? ultimoDia : getDaysInMonth(year, monthIndex);
@@ -980,29 +993,29 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
 <tr>
   <td class="label">HFO (Fuel Oil Pesado)</td>
   <td class="num">${fmt(hfo)}</td>
-  <td class="num">${u1_mes > 0 ? fmt(hfo_u1m) : "—"}</td>
-  <td class="num">${u1_mes > 0 ? fmt(galh_hfo_u1m, 1) : "—"}</td>
-  <td class="num">${u2_mes > 0 ? fmt(hfo_u2m) : "—"}</td>
-  <td class="num">${u2_mes > 0 ? fmt(galh_hfo_u2m, 1) : "—"}</td>
+  <td class="num">${h1_fuel > 0 ? fmt(hfo_u1m) : "—"}</td>
+  <td class="num">${h1_fuel > 0 ? fmt(galh_hfo_u1m, 1) : "—"}</td>
+  <td class="num">${h2_fuel > 0 ? fmt(hfo_u2m) : "—"}</td>
+  <td class="num">${h2_fuel > 0 ? fmt(galh_hfo_u2m, 1) : "—"}</td>
 </tr>
 <tr>
   <td class="label">Diésel (DO)</td>
   <td class="num">${fmt(dsl)}</td>
-  <td class="num">${u1_mes > 0 ? fmt(dsl_u1m) : "—"}</td>
-  <td class="num">${u1_mes > 0 ? fmt(galh_do_u1m, 1) : "—"}</td>
-  <td class="num">${u2_mes > 0 ? fmt(dsl_u2m) : "—"}</td>
-  <td class="num">${u2_mes > 0 ? fmt(galh_do_u2m, 1) : "—"}</td>
+  <td class="num">${h1_fuel > 0 ? fmt(dsl_u1m) : "—"}</td>
+  <td class="num">${h1_fuel > 0 ? fmt(galh_do_u1m, 1) : "—"}</td>
+  <td class="num">${h2_fuel > 0 ? fmt(dsl_u2m) : "—"}</td>
+  <td class="num">${h2_fuel > 0 ? fmt(galh_do_u2m, 1) : "—"}</td>
 </tr>
 <tr class="rpt-row-total">
   <td class="label"><strong>Total</strong></td>
   <td class="num hi"><strong>${fmt(fuelTot)}</strong></td>
-  <td class="num">${u1_mes > 0 ? fmt(fuel_u1m) : "—"}</td>
-  <td class="num hi">${u1_mes > 0 ? fmt(galh_u1m, 1) : "—"}</td>
-  <td class="num">${u2_mes > 0 ? fmt(fuel_u2m) : "—"}</td>
-  <td class="num hi">${u2_mes > 0 ? fmt(galh_u2m, 1) : "—"}</td>
+  <td class="num">${h1_fuel > 0 ? fmt(fuel_u1m) : "—"}</td>
+  <td class="num hi">${h1_fuel > 0 ? fmt(galh_u1m, 1) : "—"}</td>
+  <td class="num">${h2_fuel > 0 ? fmt(fuel_u2m) : "—"}</td>
+  <td class="num hi">${h2_fuel > 0 ? fmt(galh_u2m, 1) : "—"}</td>
 </tr>
 </tbody></table>
-<p class="rpt-muted" style="font-size:10.5px;margin-bottom:6px">* Consumo por unidad estimado por prorrateo proporcional a energía generada (kWh). U1 = Generador 1, U2 = Generador 2.</p>`;
+<p class="rpt-muted" style="font-size:10.5px;margin-bottom:6px">* Consumo por unidad: suma de prorrateos diarios proporcional a energía generada (kWh). gal/h: Σgal_unidad / Σhoras_con_dato. Método idéntico al Análisis Ejecutivo de Combustible.</p>`;
   html += buildFuelExecutiveHTML(wbProd, fechaCorte, "monthly");
 
   html += seccion(4, "Horas de Operación");
