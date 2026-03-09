@@ -174,14 +174,18 @@ function semaforo(v: number): string {
   return "ROJO";
 }
 
-function semColor(estado: string): string {
-  switch (String(estado || "").toUpperCase()) {
-    case "VERDE": return "#0a7d32";
-    case "AMARILLO": return "#b8860b";
-    case "NARANJA": return "#e67e00";
-    case "ROJO": return "#c0392b";
-    default: return "#111";
-  }
+function badgeEstado(estado: string): string {
+  const cls: Record<string, string> = {
+    VERDE: "badge badge-verde",
+    AMARILLO: "badge badge-amarillo",
+    NARANJA: "badge badge-naranja",
+    ROJO: "badge badge-rojo",
+    "SIN DATO": "badge badge-nd",
+    NORMAL: "badge badge-verde",
+    "ALERTA OPERATIVA": "badge badge-naranja",
+    "CRÍTICO": "badge badge-rojo",
+  };
+  return `<span class="${cls[estado] ?? "badge badge-nd"}">${estado}</span>`;
 }
 
 // ========= HELPERS HOJA =========
@@ -214,6 +218,37 @@ function findRowByDate(rows: any[][], fechaJS: Date): any[] | null {
     if (excelDateKey(rows[i][CONFIG.COL_FECHA]) === k) return rows[i];
   }
   return null;
+}
+
+// ========= ENCABEZADO =========
+
+function rptHeader(tipo: string, subtitulo: string): string {
+  return `<div class="rpt-header">
+  <div class="rpt-header-body">
+    <div class="rpt-header-left">
+      <div class="rpt-logo-circle">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="28" height="28">
+          <circle cx="16" cy="16" r="14" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/>
+          <path d="M16 7v4M16 21v4M7 16h4M21 16h4M10.1 10.1l2.8 2.8M19.1 19.1l2.8 2.8M19.1 10.1l-2.8 2.8M10.1 19.1l2.8 2.8" stroke="rgba(255,255,255,0.9)" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="3.5" fill="rgba(255,255,255,0.9)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="rpt-empresa">Central El Morro &mdash; Morro Energy S.A.</div>
+        <div class="rpt-tipo">${tipo}</div>
+      </div>
+    </div>
+    <div class="rpt-header-right">
+      <div class="rpt-subtitulo-label">Período</div>
+      <div class="rpt-subtitulo">${subtitulo}</div>
+    </div>
+  </div>
+  <div class="rpt-header-stripe"></div>
+</div>`;
+}
+
+function seccion(n: string | number, titulo: string): string {
+  return `<div class="rpt-section-title"><span class="rpt-section-num">${n}</span>${titulo}</div>`;
 }
 
 // ========= ANÁLISIS EJECUTIVO DE COMBUSTIBLE =========
@@ -288,7 +323,7 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     const metrics = getAllFuelMetrics(wbProd);
     const win90 = lastNDaysWithData(metrics, fechaJS, 90);
     if (!win90 || win90.length < 20) {
-      return `<div style="border:1px solid #999;padding:10px;margin-top:8px;"><strong>Análisis Ejecutivo de Combustible:</strong> Información insuficiente para referencia 90D (días válidos: ${(win90||[]).length}).</div>`;
+      return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: Información insuficiente para referencia 90D (días válidos: ${(win90||[]).length}).</div>`;
     }
     const galh_ref = meanSafe(win90.map(d => d.gal_h));
     const pctDO_ref = meanSafe(win90.map(d => d.pctDO));
@@ -303,7 +338,7 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
         if (jsDateKey(metrics[i].date) === key) { today = metrics[i]; break; }
         if (metrics[i].date <= fechaJS && !today) today = metrics[i];
       }
-      if (!today) return `<div style="border:1px solid #999;padding:10px;margin-top:8px;"><strong>Análisis Ejecutivo de Combustible:</strong> No se encontró un día válido para análisis.</div>`;
+      if (!today) return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: No se encontró un día válido para análisis.</div>`;
 
       const delta_galh = today.gal_h - galh_ref;
       const delta_gal_dia = Number.isFinite(delta_galh) ? Math.max(0, delta_galh) * today.horasOp : NaN;
@@ -317,22 +352,22 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
         }
       }
 
-      let estado = "NORMAL", color = "#1f7a1f";
-      if (today.pctDO > pctDO_ref + 0.20 && today.gal_h > galh_ref * 1.20) { estado = "CRÍTICO"; color = "#b00020"; }
-      else if (today.pctDO > pctDO_ref + 0.10 || today.gal_h > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; color = "#b26a00"; }
+      let estado = "NORMAL";
+      if (today.pctDO > pctDO_ref + 0.20 && today.gal_h > galh_ref * 1.20) { estado = "CRÍTICO"; }
+      else if (today.pctDO > pctDO_ref + 0.10 || today.gal_h > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; }
 
-      let causa = "Operación normal";
+      let causa = "Operación dentro de los parámetros de referencia.";
       if (estado !== "NORMAL") {
         if (today.pctDO > pctDO_ref + 0.10) causa = "Mayor uso de Diésel respecto a la referencia 90D (evento operacional).";
         else causa = "Consumo por hora elevado respecto a la referencia 90D (revisar operación).";
       }
 
-      return `
-<div style="margin-top:8px;">
-  <div style="font-weight:700;margin-bottom:6px;">Análisis Ejecutivo de Combustible</div>
-  <div style="font-size:12px;margin-bottom:6px;color:#333;">
-    <strong>Estado:</strong> <span style="color:${color};font-weight:700">${estado}</span> — ${causa}
+      return `<div class="rpt-fuel-box">
+  <div class="rpt-fuel-header">
+    <span class="rpt-fuel-title">Análisis Ejecutivo de Combustible</span>
+    <span>${badgeEstado(estado)}</span>
   </div>
+  <p class="rpt-fuel-causa">${causa}</p>
   <table class="data-table">
     <thead><tr>
       <th>Indicador</th>
@@ -342,9 +377,9 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     <tbody>
       <tr><td class="label">% Diésel</td><td>${fmtPct(today.pctDO)}</td><td>${fmtPct(pctDO_ref)}</td></tr>
       <tr><td class="label">Consumo (gal/h)</td><td>${fmt1(today.gal_h)}</td><td>${fmt1(galh_ref)}</td></tr>
-      <tr><td class="label">Sobrec. estimado (gal/h)</td><td>${fmt1(Math.max(0, delta_galh))}</td><td>—</td></tr>
-      <tr><td class="label">Sobrec. día (gal)</td><td>${fmt0(delta_gal_dia)}</td><td>—</td></tr>
-      <tr><td class="label">Sobrec. acumulado mes (gal)</td><td>${fmt0(delta_mes)}</td><td>—</td></tr>
+      <tr><td class="label">Sobreconsumo estimado (gal/h)</td><td>${fmt1(Math.max(0, delta_galh))}</td><td>—</td></tr>
+      <tr><td class="label">Sobreconsumo día (gal)</td><td>${fmt0(delta_gal_dia)}</td><td>—</td></tr>
+      <tr><td class="label">Sobreconsumo acumulado mes (gal)</td><td>${fmt0(delta_mes)}</td><td>—</td></tr>
     </tbody>
   </table>
 </div>`;
@@ -353,36 +388,36 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     // MENSUAL
     const end = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
     const y = end.getFullYear(), m = end.getMonth();
-    let sumFuel = 0, sumDsl = 0, sumHoras = 0, sumKWh = 0;
+    let sumFuel = 0, sumDsl = 0, sumHoras = 0;
     for (const d of metrics) {
       if (d.date.getFullYear() === y && d.date.getMonth() === m && d.date <= end) {
-        sumFuel += d.fuel; sumDsl += d.dsl; sumHoras += d.horasOp; sumKWh += d.kWh;
+        sumFuel += d.fuel; sumDsl += d.dsl; sumHoras += d.horasOp;
       }
     }
     if (!(sumFuel > 0 && sumHoras > 0)) {
-      return `<div style="border:1px solid #999;padding:10px;margin-top:8px;"><strong>Análisis Ejecutivo de Combustible:</strong> Sin datos suficientes del mes.</div>`;
+      return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: Sin datos suficientes del mes.</div>`;
     }
     const pctDO_mes = sumDsl / sumFuel;
     const galh_mes = sumFuel / sumHoras;
     const delta_galh = galh_mes - galh_ref;
     const delta_periodo = Math.max(0, delta_galh) * sumHoras;
 
-    let estado = "NORMAL", color = "#1f7a1f";
-    if (pctDO_mes > pctDO_ref + 0.20 && galh_mes > galh_ref * 1.20) { estado = "CRÍTICO"; color = "#b00020"; }
-    else if (pctDO_mes > pctDO_ref + 0.10 || galh_mes > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; color = "#b26a00"; }
+    let estado = "NORMAL";
+    if (pctDO_mes > pctDO_ref + 0.20 && galh_mes > galh_ref * 1.20) { estado = "CRÍTICO"; }
+    else if (pctDO_mes > pctDO_ref + 0.10 || galh_mes > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; }
 
-    let causa = "Operación normal";
+    let causa = "Operación dentro de los parámetros de referencia.";
     if (estado !== "NORMAL") {
       if (pctDO_mes > pctDO_ref + 0.10) causa = "Mayor uso de Diésel en el mes respecto a la referencia 90D.";
       else causa = "Consumo por hora del mes elevado respecto a la referencia 90D.";
     }
 
-    return `
-<div style="margin-top:8px;">
-  <div style="font-weight:700;margin-bottom:6px;">Análisis Ejecutivo de Combustible (Mensual)</div>
-  <div style="font-size:12px;margin-bottom:6px;color:#333;">
-    <strong>Estado:</strong> <span style="color:${color};font-weight:700">${estado}</span> — ${causa}
+    return `<div class="rpt-fuel-box">
+  <div class="rpt-fuel-header">
+    <span class="rpt-fuel-title">Análisis Ejecutivo de Combustible (Mensual)</span>
+    <span>${badgeEstado(estado)}</span>
   </div>
+  <p class="rpt-fuel-causa">${causa}</p>
   <table class="data-table">
     <thead><tr>
       <th>Indicador</th>
@@ -392,13 +427,13 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     <tbody>
       <tr><td class="label">% Diésel</td><td>${fmtPct(pctDO_mes)}</td><td>${fmtPct(pctDO_ref)}</td></tr>
       <tr><td class="label">Consumo (gal/h)</td><td>${fmt1(galh_mes)}</td><td>${fmt1(galh_ref)}</td></tr>
-      <tr><td class="label">Sobrec. periodo (gal)</td><td>${fmt0(delta_periodo)}</td><td>—</td></tr>
+      <tr><td class="label">Sobreconsumo periodo (gal)</td><td>${fmt0(delta_periodo)}</td><td>—</td></tr>
     </tbody>
   </table>
 </div>`;
   } catch (e) {
     console.error("FuelExecutive error:", e);
-    return `<div style="border:1px solid #b00020;padding:10px;margin-top:8px;"><strong>Análisis Ejecutivo de Combustible:</strong> No disponible por error de cálculo.</div>`;
+    return `<div class="rpt-notice rpt-notice-error">Análisis Ejecutivo de Combustible: No disponible por error de cálculo.</div>`;
   }
 }
 
@@ -499,11 +534,12 @@ function calcularIDOMDia(
 
 function notaPieIDOM(ref: RefPrev): string {
   if (!ref || !ref.R_ref || !ref.IC_ref) return "";
-  return `<div style="font-size:11px;margin-top:12px;color:#333;line-height:1.35;">
-  <strong>Nota técnica (KPIs IDOM):</strong><br>
+  return `<div class="rpt-nota-tecnica">
+  <strong>Nota técnica — KPIs IDOM</strong><br>
   <strong>R_ref</strong>: Σ(kWh)/Σ(gal) del promedio móvil de 3 meses (${ref.mesRef}, días con dato: ${ref.diasConDato}).<br>
-  <strong>IC_ref</strong>: (P_promedio_op_ref / P_instalada_efectiva), P_instalada_efectiva = 0,85×${P_INST_TOTAL} = ${Math.round(P_INST_EFECTIVA)} kW.<br>
-  <strong>IDOM_D</strong>: 0,4×IE + 0,3×ID + 0,3×(IC_día/IC_ref). Semáforo: VERDE ≥ 0,85 | AMARILLO 0,75–0,85 | NARANJA 0,65–0,75 | ROJO &lt; 0,65.
+  <strong>IC_ref</strong>: P_promedio_op_ref / P_instalada_efectiva, P_eff = 0,85 × ${P_INST_TOTAL} kW = ${Math.round(P_INST_EFECTIVA)} kW.<br>
+  <strong>IDOM_D</strong>: 0,4·IE + 0,3·ID + 0,3·(IC_día/IC_ref). &nbsp;
+  <strong>Semáforo</strong>: VERDE ≥ 0,85 · AMARILLO 0,75–0,85 · NARANJA 0,65–0,75 · ROJO &lt; 0,65.
 </div>`;
 }
 
@@ -563,87 +599,86 @@ export function generarInformeDiario(
   const aut_hfo = hfo > 0 ? stock_hfo / hfo : 0;
   const aut_do = dsl > 0 ? stock_do / dsl : 0;
 
-  let html = `<pre style="margin:0 0 10px 0;white-space:pre-wrap;">REPORTE POST OPERATIVO DIARIO
-CENTRAL EL MORRO – MORRO ENERGY S.A.
-Fecha de operación: ${fechaLarga}
-</pre>`;
+  let html = rptHeader("Reporte Post Operativo Diario", fechaLarga);
 
-  html += `<div class="section-title">1. PRODUCCIÓN DE ENERGÍA</div>
-<table class="data-table"><thead><tr>
-<th>Concepto</th><th>Energía [kWh]</th><th>Potencia media [kW]</th></tr></thead><tbody>
-<tr><td class="label">Energía generada total</td><td>${fmt(total_gen_kwh)}</td><td>${fmt(pmed_total, 1)}</td></tr>
-<tr><td class="label">Energía a clientes</td><td>${fmt(total_kwh_clientes)}</td><td>${fmt(pmed_cli, 1)}</td></tr>
-<tr><td class="label">Auxiliares</td><td>${fmt(aux_kwh)}</td><td>${fmt(pmed_aux, 1)}</td></tr>
+  html += seccion(1, "Producción de Energía");
+  html += `<table class="data-table"><thead><tr>
+<th>Concepto</th><th>Energía [kWh]</th><th>Potencia media [kW]</th></tr></thead>
+<tbody>
+<tr><td class="label">Energía generada total</td><td class="num hi">${fmt(total_gen_kwh)}</td><td>${fmt(pmed_total, 1)}</td></tr>
+<tr><td class="label">Energía a clientes</td><td class="num">${fmt(total_kwh_clientes)}</td><td>${fmt(pmed_cli, 1)}</td></tr>
+<tr><td class="label">Auxiliares</td><td class="num">${fmt(aux_kwh)}</td><td>${fmt(pmed_aux, 1)}</td></tr>
 </tbody></table>`;
 
   html += `<table class="data-table"><thead><tr>
-<th>Unidad</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
+<th>Unidad generadora</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
 </tr></thead><tbody>
-<tr><td class="label">Generador 1</td><td>${fmt(gen1_kwh)}</td><td>${u1_dia > 0 ? fmt(pmed_g1, 1) : "N/A"}</td><td>${fmt(shareG1, 1)}</td></tr>
-<tr><td class="label">Generador 2</td><td>${fmt(gen2_kwh)}</td><td>${u2_dia > 0 ? fmt(pmed_g2, 1) : "N/A"}</td><td>${fmt(shareG2, 1)}</td></tr>
+<tr><td class="label">Generador 1</td><td class="num">${fmt(gen1_kwh)}</td><td>${u1_dia > 0 ? fmt(pmed_g1, 1) : "—"}</td><td>${fmt(shareG1, 1)}</td></tr>
+<tr><td class="label">Generador 2</td><td class="num">${fmt(gen2_kwh)}</td><td>${u2_dia > 0 ? fmt(pmed_g2, 1) : "—"}</td><td>${fmt(shareG2, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">2. DISTRIBUCIÓN POR ALIMENTADOR</div>
-<table class="data-table"><thead><tr>
+  html += seccion(2, "Distribución por Alimentador");
+  html += `<table class="data-table"><thead><tr>
 <th>Destino</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
 </tr></thead><tbody>
-<tr><td class="label">LANEC</td><td>${fmt(lanec_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_lan, 1) : "N/A"}</td><td>${fmt(share_lan, 1)}</td></tr>
-<tr><td class="label">GRACA</td><td>${fmt(graca_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_gra, 1) : "N/A"}</td><td>${fmt(share_gra, 1)}</td></tr>
-<tr><td class="label">Auxiliares</td><td>${fmt(aux_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_aux, 1) : "N/A"}</td><td>${fmt(share_aux, 1)}</td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(lanec_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_lan, 1) : "—"}</td><td>${fmt(share_lan, 1)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(graca_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_gra, 1) : "—"}</td><td>${fmt(share_gra, 1)}</td></tr>
+<tr><td class="label">Auxiliares</td><td class="num">${fmt(aux_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_aux, 1) : "—"}</td><td>${fmt(share_aux, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">3. COMBUSTIBLE Y EFICIENCIA</div>
-<table class="data-table"><thead><tr>
+  html += seccion(3, "Combustible y Eficiencia");
+  html += `<table class="data-table"><thead><tr>
 <th>Combustible</th><th>Consumo [gal]</th></tr></thead><tbody>
-<tr><td class="label">HFO</td><td>${fmt(hfo)}</td></tr>
-<tr><td class="label">Diésel</td><td>${fmt(dsl)}</td></tr>
-<tr><td class="label">Total equivalente</td><td>${fmt(fuelTot)}</td></tr>
+<tr><td class="label">HFO (Fuel Oil Pesado)</td><td class="num">${fmt(hfo)}</td></tr>
+<tr><td class="label">Diésel (DO)</td><td class="num">${fmt(dsl)}</td></tr>
+<tr><td class="label">Total equivalente</td><td class="num hi">${fmt(fuelTot)}</td></tr>
 </tbody></table>
-<p>Rendimiento global: <strong>${fmt(rendimiento, 2)} kWh/gal</strong></p>`;
+<div class="rpt-kpi-inline">Rendimiento global: <span class="rpt-kpi-val">${fmt(rendimiento, 2)} kWh/gal</span></div>`;
 
   html += buildFuelExecutiveHTML(wbProd, fechaJS, "daily");
 
-  html += `<div class="section-title">4. HORAS DE OPERACIÓN</div>
-<table class="data-table"><thead><tr>
-<th>Unidad</th><th>Día [h]</th><th>Acumuladas [h]</th><th>Restantes para próximo mantenimiento [h]</th>
+  html += seccion(4, "Horas de Operación");
+  html += `<table class="data-table"><thead><tr>
+<th>Unidad</th><th>Horas del día [h]</th><th>Horas acumuladas [h]</th><th>Restantes para mantenimiento [h]</th>
 </tr></thead><tbody>
-<tr><td class="label">Unidad 1</td><td>${fmt(u1_dia, 1)}</td><td>${fmt(u1_ac, 1)}</td><td>${fmt(u1_rest, 1)}</td></tr>
-<tr><td class="label">Unidad 2</td><td>${fmt(u2_dia, 1)}</td><td>${fmt(u2_ac, 1)}</td><td>${fmt(u2_rest, 1)}</td></tr>
+<tr><td class="label">Unidad 1</td><td class="num">${fmt(u1_dia, 1)}</td><td class="num">${fmt(u1_ac, 1)}</td><td class="num ${u1_rest < 500 ? "warn" : ""}">${fmt(u1_rest, 1)}</td></tr>
+<tr><td class="label">Unidad 2</td><td class="num">${fmt(u2_dia, 1)}</td><td class="num">${fmt(u2_ac, 1)}</td><td class="num ${u2_rest < 500 ? "warn" : ""}">${fmt(u2_rest, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">5. STOCKS Y AUTONOMÍAS</div>
-<table class="data-table"><thead><tr>
-<th>Producto</th><th>Stock [gal]</th><th>Autonomía [días]</th></tr></thead><tbody>
-<tr><td class="label">HFO</td><td>${fmt(stock_hfo)}</td><td>${aut_hfo > 0 ? fmt(aut_hfo, 2) : "N/A"}</td></tr>
-<tr><td class="label">Diésel</td><td>${fmt(stock_do)}</td><td>${aut_do > 0 ? fmt(aut_do, 2) : "N/A"}</td></tr>
+  html += seccion(5, "Stocks y Autonomías");
+  html += `<table class="data-table"><thead><tr>
+<th>Producto</th><th>Stock [gal]</th><th>Autonomía estimada [días]</th></tr></thead><tbody>
+<tr><td class="label">HFO (Fuel Oil Pesado)</td><td class="num">${fmt(stock_hfo)}</td><td class="num ${aut_hfo > 0 && aut_hfo < 3 ? "warn" : ""}">${aut_hfo > 0 ? fmt(aut_hfo, 1) : "—"}</td></tr>
+<tr><td class="label">Diésel (DO)</td><td class="num">${fmt(stock_do)}</td><td class="num ${aut_do > 0 && aut_do < 3 ? "warn" : ""}">${aut_do > 0 ? fmt(aut_do, 1) : "—"}</td></tr>
 </tbody></table>`;
 
   const refPrev = calcularReferenciaPromedio3Meses(wbProd, fechaJS);
   const idomDia = calcularIDOMDia(total_gen_kwh, fuelTot, horasOperDia, u1_dia, u2_dia, refPrev);
 
-  html += `<div class="section-title">6. INDICADOR DE DESEMPEÑO OPERACIONAL (IDOM)</div>`;
+  html += seccion(6, "Indicador de Desempeño Operacional (IDOM)");
   if (idomDia) {
-    const c = semColor(idomDia.estado);
     html += `<table class="data-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>
-<tr><td class="label">Referencia (promedio móvil 3 meses)</td><td>${refPrev.mesRef} (días: ${refPrev.diasConDato})</td></tr>
-<tr><td class="label">Rendimiento de referencia</td><td>${fmt(refPrev.R_ref, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de carga de referencia</td><td>${fmt(refPrev.IC_ref, 3)}</td></tr>
-<tr><td class="label">Rendimiento del día</td><td>${fmt(idomDia.R_dia, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de eficiencia</td><td>${fmt(idomDia.IE, 3)}</td></tr>
-<tr><td class="label">Disponibilidad diaria</td><td>${fmt(idomDia.ID, 2)}</td></tr>
-<tr><td class="label">Índice de carga del día</td><td>${fmt(idomDia.IC_dia, 3)}</td></tr>
-<tr><td class="label"><strong>IDOM_D</strong></td><td><strong>${fmt(idomDia.IDOM, 4)}</strong></td></tr>
-<tr><td class="label">Estado operacional</td><td><strong style="color:${c}">${idomDia.estado}</strong></td></tr>
-<tr><td class="label">Causa principal</td><td><strong>${idomDia.driver}</strong></td></tr>
-<tr><td class="label">Pérdida energética vs referencia</td><td>${fmt(idomDia.Loss_kWh, 0)} kWh</td></tr>
+<tr><td class="label">Referencia (prom. móvil 3 meses)</td><td>${refPrev.mesRef} <span class="rpt-muted">(${refPrev.diasConDato} días con dato)</span></td></tr>
+<tr><td class="label">Rendimiento de referencia (R_ref)</td><td class="num">${fmt(refPrev.R_ref, 2)} kWh/gal</td></tr>
+<tr><td class="label">Índice de carga de referencia (IC_ref)</td><td class="num">${fmt(refPrev.IC_ref, 3)}</td></tr>
+<tr><td class="label">Rendimiento del día (R_día)</td><td class="num">${fmt(idomDia.R_dia, 2)} kWh/gal</td></tr>
+<tr><td class="label">Índice de eficiencia (IE)</td><td class="num">${fmt(idomDia.IE, 3)}</td></tr>
+<tr><td class="label">Disponibilidad diaria (ID)</td><td class="num">${fmt(idomDia.ID, 2)}</td></tr>
+<tr><td class="label">Índice de carga del día (IC_día)</td><td class="num">${fmt(idomDia.IC_dia, 3)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>IDOM_D</strong></td><td class="num"><strong>${fmt(idomDia.IDOM, 4)}</strong></td></tr>
+<tr><td class="label">Estado operacional</td><td>${badgeEstado(idomDia.estado)}</td></tr>
+<tr><td class="label">Factor limitante principal</td><td><strong>${idomDia.driver}</strong></td></tr>
+<tr><td class="label">Pérdida energética vs referencia</td><td class="num">${fmt(idomDia.Loss_kWh, 0)} kWh</td></tr>
 </tbody></table>`;
     html += notaPieIDOM(refPrev);
   } else {
-    html += `<p>No se pudo calcular IDOM: verifique datos completos del día y del promedio móvil de 3 meses (referencia).</p>`;
+    html += `<div class="rpt-notice">No se pudo calcular IDOM: verifique datos completos del día y de la referencia (promedio móvil 3 meses).</div>`;
   }
 
-  html += `<div class="section-title">7. OBSERVACIONES</div>`;
-  html += obs ? `<p>${obs.replace(/\n/g, "<br>")}</p>` : `<p>Sin novedades operativas relevantes.</p>`;
+  html += seccion(7, "Observaciones");
+  html += obs
+    ? `<div class="rpt-obs">${obs.replace(/\n/g, "<br>")}</div>`
+    : `<div class="rpt-obs rpt-obs-empty">Sin novedades operativas relevantes.</div>`;
 
   return html;
 }
@@ -701,11 +736,9 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
   const rendimiento = fuelTot > 0 ? tot_gen / fuelTot : 0;
   const shareL = tot_cli > 0 ? (lan / tot_cli) * 100 : 0;
   const shareG = tot_cli > 0 ? (gra / tot_cli) * 100 : 0;
-
   const u1_mes = (first_h1 !== null && last_h1 !== null) ? Math.max(0, last_h1 - first_h1) : 0;
   const u2_mes = (first_h2 !== null && last_h2 !== null) ? Math.max(0, last_h2 - first_h2) : 0;
   const horasOperMes = Math.max(u1_mes, u2_mes);
-
   const pmed_total = horasOperMes > 0 ? tot_gen / horasOperMes : 0;
   const pmed_cli = horasOperMes > 0 ? tot_cli / horasOperMes : 0;
   const pmed_aux = horasOperMes > 0 ? aux / horasOperMes : 0;
@@ -716,79 +749,76 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
   const sumGenKwh = g1 + g2;
   const shareG1 = sumGenKwh > 0 ? (g1 / sumGenKwh) * 100 : 0;
   const shareG2 = sumGenKwh > 0 ? (g2 / sumGenKwh) * 100 : 0;
-
   const mesTexto = getSheetNameFromDate(fechaCorte);
   const textoPeriodo = ultimoDia > 0 ? `${mesTexto} (hasta el día ${ultimoDia})` : mesTexto;
-
   const diasPeriodo = ultimoDia > 0 ? ultimoDia : getDaysInMonth(year, monthIndex);
   const horasCalendario = diasPeriodo * 24;
-  const fp_inst = horasCalendario > 0 ? (tot_gen / (P_INST_TOTAL * horasCalendario)) : 0;
-  const fp_eff = horasCalendario > 0 ? (tot_gen / (P_INST_EFECTIVA * horasCalendario)) : 0;
-
+  const fp_inst = horasCalendario > 0 ? tot_gen / (P_INST_TOTAL * horasCalendario) : 0;
+  const fp_eff = horasCalendario > 0 ? tot_gen / (P_INST_EFECTIVA * horasCalendario) : 0;
   const aux_lan = tot_cli > 0 ? aux * (lan / tot_cli) : 0;
   const aux_gra = tot_cli > 0 ? aux * (gra / tot_cli) : 0;
   const lan_fact = lan + aux_lan;
   const gra_fact = gra + aux_gra;
 
-  let html = `<pre style="margin:0 0 10px 0;white-space:pre-wrap;">REPORTE POST OPERATIVO MENSUAL
-CENTRAL EL MORRO – MORRO ENERGY S.A.
-Período de operación: ${textoPeriodo}
-</pre>`;
+  let html = rptHeader("Reporte Post Operativo Mensual", textoPeriodo);
 
-  html += `<div class="section-title">1. PRODUCCIÓN DE ENERGÍA</div>
-<table class="data-table"><thead><tr>
+  html += seccion(1, "Producción de Energía");
+  html += `<table class="data-table"><thead><tr>
 <th>Concepto</th><th>Energía [kWh]</th><th>Potencia media [kW]</th>
 </tr></thead><tbody>
-<tr><td class="label">Energía generada total</td><td>${fmt(tot_gen)}</td><td>${horasOperMes > 0 ? fmt(pmed_total, 1) : "N/A"}</td></tr>
-<tr><td class="label">Energía a clientes</td><td>${fmt(tot_cli)}</td><td>${horasOperMes > 0 ? fmt(pmed_cli, 1) : "N/A"}</td></tr>
-<tr><td class="label">Auxiliares</td><td>${fmt(aux)}</td><td>${horasOperMes > 0 ? fmt(pmed_aux, 1) : "N/A"}</td></tr>
-</tbody></table>
-<p><strong>Factor de planta (período reportado)</strong>: ${(fp_inst * 100).toFixed(1)}% (vs instalada ${P_INST_TOTAL} kW) — ${(fp_eff * 100).toFixed(1)}% (vs efectiva ${Math.round(P_INST_EFECTIVA)} kW)</p>`;
+<tr><td class="label">Energía generada total</td><td class="num hi">${fmt(tot_gen)}</td><td>${horasOperMes > 0 ? fmt(pmed_total, 1) : "—"}</td></tr>
+<tr><td class="label">Energía a clientes</td><td class="num">${fmt(tot_cli)}</td><td>${horasOperMes > 0 ? fmt(pmed_cli, 1) : "—"}</td></tr>
+<tr><td class="label">Auxiliares</td><td class="num">${fmt(aux)}</td><td>${horasOperMes > 0 ? fmt(pmed_aux, 1) : "—"}</td></tr>
+</tbody></table>`;
+
+  html += `<div class="rpt-kpi-row">
+  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs instalada)</div><div class="rpt-kpi-big">${(fp_inst * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${P_INST_TOTAL} kW instalados</div></div>
+  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs efectiva)</div><div class="rpt-kpi-big">${(fp_eff * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${Math.round(P_INST_EFECTIVA)} kW efectivos</div></div>
+  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Rendimiento promedio</div><div class="rpt-kpi-big">${fmt(rendimiento, 2)}<span class="rpt-kpi-unit">kWh/gal</span></div><div class="rpt-kpi-sub">Energía por galón consumido</div></div>
+</div>`;
 
   html += `<table class="data-table"><thead><tr>
-<th>Unidad</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
+<th>Unidad generadora</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
 </tr></thead><tbody>
-<tr><td class="label">Generador 1</td><td>${fmt(g1)}</td><td>${u1_mes > 0 ? fmt(pmed_g1, 1) : "N/A"}</td><td>${fmt(shareG1, 1)}</td></tr>
-<tr><td class="label">Generador 2</td><td>${fmt(g2)}</td><td>${u2_mes > 0 ? fmt(pmed_g2, 1) : "N/A"}</td><td>${fmt(shareG2, 1)}</td></tr>
+<tr><td class="label">Generador 1</td><td class="num">${fmt(g1)}</td><td>${u1_mes > 0 ? fmt(pmed_g1, 1) : "—"}</td><td>${fmt(shareG1, 1)}</td></tr>
+<tr><td class="label">Generador 2</td><td class="num">${fmt(g2)}</td><td>${u2_mes > 0 ? fmt(pmed_g2, 1) : "—"}</td><td>${fmt(shareG2, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">2. DISTRIBUCIÓN ENERGÉTICA</div>
-<table class="data-table"><thead><tr>
+  html += seccion(2, "Distribución Energética");
+  html += `<table class="data-table"><thead><tr>
 <th>Destino</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>
 </tr></thead><tbody>
-<tr><td class="label">LANEC</td><td>${fmt(lan)}</td><td>${horasOperMes > 0 ? fmt(pmed_lan, 1) : "N/A"}</td><td>${fmt(shareL, 1)}</td></tr>
-<tr><td class="label">GRACA</td><td>${fmt(gra)}</td><td>${horasOperMes > 0 ? fmt(pmed_gra, 1) : "N/A"}</td><td>${fmt(shareG, 1)}</td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(lan)}</td><td>${horasOperMes > 0 ? fmt(pmed_lan, 1) : "—"}</td><td>${fmt(shareL, 1)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(gra)}</td><td>${horasOperMes > 0 ? fmt(pmed_gra, 1) : "—"}</td><td>${fmt(shareG, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">3. COMBUSTIBLE Y EFICIENCIA</div>
-<table class="data-table"><thead><tr>
-<th>Combustible</th><th>Consumo [gal]</th></tr></thead><tbody>
-<tr><td class="label">HFO</td><td>${fmt(hfo)}</td></tr>
-<tr><td class="label">Diésel</td><td>${fmt(dsl)}</td></tr>
-<tr><td class="label">Total equivalente</td><td>${fmt(fuelTot)}</td></tr>
-</tbody></table>
-<p>Rendimiento promedio: <strong>${fmt(rendimiento, 2)} kWh/gal</strong></p>`;
-
+  html += seccion(3, "Combustible y Eficiencia");
+  html += `<table class="data-table"><thead><tr>
+<th>Combustible</th><th>Consumo mensual [gal]</th></tr></thead><tbody>
+<tr><td class="label">HFO (Fuel Oil Pesado)</td><td class="num">${fmt(hfo)}</td></tr>
+<tr><td class="label">Diésel (DO)</td><td class="num">${fmt(dsl)}</td></tr>
+<tr><td class="label">Total equivalente</td><td class="num hi">${fmt(fuelTot)}</td></tr>
+</tbody></table>`;
   html += buildFuelExecutiveHTML(wbProd, fechaCorte, "monthly");
 
-  html += `<div class="section-title">4. HORAS DE OPERACIÓN (MENSUAL)</div>
-<table class="data-table"><thead><tr>
-<th>Unidad</th><th>Horas mes [h]</th></tr></thead><tbody>
-<tr><td class="label">Unidad 1</td><td>${fmt(u1_mes, 1)}</td></tr>
-<tr><td class="label">Unidad 2</td><td>${fmt(u2_mes, 1)}</td></tr>
-<tr><td class="label">Horas sistema (max)</td><td><strong>${fmt(horasOperMes, 1)}</strong></td></tr>
+  html += seccion(4, "Horas de Operación");
+  html += `<table class="data-table"><thead><tr>
+<th>Unidad</th><th>Horas del mes [h]</th></tr></thead><tbody>
+<tr><td class="label">Unidad 1</td><td class="num">${fmt(u1_mes, 1)}</td></tr>
+<tr><td class="label">Unidad 2</td><td class="num">${fmt(u2_mes, 1)}</td></tr>
+<tr class="rpt-row-total"><td class="label">Horas sistema (máximo)</td><td class="num hi">${fmt(horasOperMes, 1)}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">5. DISTRIBUCIÓN ENERGÍA FACTURABLE</div>
-<table class="data-table"><thead><tr>
-<th>Cliente</th><th>Energía directa [kWh]</th><th>Participación [%]</th><th>Auxiliares asignados [kWh]</th><th>Total facturable [kWh]</th>
+  html += seccion(5, "Distribución de Energía Facturable");
+  html += `<table class="data-table"><thead><tr>
+<th>Cliente</th><th>Energía directa [kWh]</th><th>Part. [%]</th><th>Aux. asignados [kWh]</th><th>Total facturable [kWh]</th>
 </tr></thead><tbody>
-<tr><td class="label">LANEC</td><td>${fmt(lan)}</td><td>${fmt(shareL, 2)}</td><td>${fmt(aux_lan)}</td><td><strong>${fmt(lan_fact)}</strong></td></tr>
-<tr><td class="label">GRACA</td><td>${fmt(gra)}</td><td>${fmt(shareG, 2)}</td><td>${fmt(aux_gra)}</td><td><strong>${fmt(gra_fact)}</strong></td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(lan)}</td><td>${fmt(shareL, 2)}</td><td class="num">${fmt(aux_lan)}</td><td class="num hi">${fmt(lan_fact)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(gra)}</td><td>${fmt(shareG, 2)}</td><td class="num">${fmt(aux_gra)}</td><td class="num hi">${fmt(gra_fact)}</td></tr>
 </tbody></table>`;
 
   const refPrevM = calcularReferenciaPromedio3Meses(wbProd, fechaCorte);
-  html += `<div class="section-title">6. INDICADOR DE DESEMPEÑO OPERACIONAL (IDOM)</div>`;
+  html += seccion(6, "Indicador de Desempeño Operacional (IDOM)");
   if (refPrevM && refPrevM.R_ref > 0 && refPrevM.IC_ref > 0 && fuelTot > 0 && horasOperMes > 0) {
     const R_mes = rendimiento;
     const IE_mes = R_mes / refPrevM.R_ref;
@@ -796,23 +826,22 @@ Período de operación: ${textoPeriodo}
     const ID_mes = 1;
     const IDOM_M = 0.4 * IE_mes + 0.3 * ID_mes + 0.3 * (IC_mes / refPrevM.IC_ref);
     const estadoM = semaforo(IDOM_M);
-    const cM = semColor(estadoM);
     const lossM = Math.max(0, fuelTot * refPrevM.R_ref - tot_gen);
 
     html += `<table class="data-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>
-<tr><td class="label">Referencia (promedio móvil 3 meses)</td><td>${refPrevM.mesRef} (días: ${refPrevM.diasConDato})</td></tr>
-<tr><td class="label">Rendimiento de referencia</td><td>${fmt(refPrevM.R_ref, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de carga de referencia</td><td>${fmt(refPrevM.IC_ref, 3)}</td></tr>
-<tr><td class="label">Rendimiento del mes</td><td>${fmt(R_mes, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de eficiencia mensual</td><td>${fmt(IE_mes, 3)}</td></tr>
-<tr><td class="label">Índice de carga mensual</td><td>${fmt(IC_mes, 3)}</td></tr>
-<tr><td class="label"><strong>IDOM_M</strong></td><td><strong>${fmt(IDOM_M, 4)}</strong></td></tr>
-<tr><td class="label">Estado operacional</td><td><strong style="color:${cM}">${estadoM}</strong></td></tr>
-<tr><td class="label">Pérdida energética vs referencia</td><td>${fmt(lossM, 0)} kWh</td></tr>
+<tr><td class="label">Referencia (prom. móvil 3 meses)</td><td>${refPrevM.mesRef} <span class="rpt-muted">(${refPrevM.diasConDato} días)</span></td></tr>
+<tr><td class="label">Rendimiento de referencia (R_ref)</td><td class="num">${fmt(refPrevM.R_ref, 2)} kWh/gal</td></tr>
+<tr><td class="label">Índice de carga de referencia (IC_ref)</td><td class="num">${fmt(refPrevM.IC_ref, 3)}</td></tr>
+<tr><td class="label">Rendimiento del mes (R_mes)</td><td class="num">${fmt(R_mes, 2)} kWh/gal</td></tr>
+<tr><td class="label">Índice de eficiencia mensual (IE)</td><td class="num">${fmt(IE_mes, 3)}</td></tr>
+<tr><td class="label">Índice de carga mensual (IC_mes)</td><td class="num">${fmt(IC_mes, 3)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>IDOM_M</strong></td><td class="num"><strong>${fmt(IDOM_M, 4)}</strong></td></tr>
+<tr><td class="label">Estado operacional</td><td>${badgeEstado(estadoM)}</td></tr>
+<tr><td class="label">Pérdida energética vs referencia</td><td class="num">${fmt(lossM, 0)} kWh</td></tr>
 </tbody></table>`;
     html += notaPieIDOM(refPrevM);
   } else {
-    html += `<p>No se pudo calcular IDOM_M: verifique datos completos del mes y de la referencia (promedio móvil 3 meses).</p>`;
+    html += `<div class="rpt-notice">No se pudo calcular IDOM_M: verifique datos del mes y de la referencia (promedio móvil 3 meses).</div>`;
   }
 
   return html;
@@ -839,9 +868,7 @@ export function generarInformeFacturacion(
   const wbProd = XLSX.read(prodBuffer, { type: "array" });
   const { rows } = getProdSheetAndRows(wbProd, fechaCorte);
 
-  let lan = 0, gra = 0, aux = 0, hfo = 0, dsl = 0;
-  let first_h1: number | null = null, last_h1: number | null = null;
-  let first_h2: number | null = null, last_h2: number | null = null;
+  let lan = 0, gra = 0, aux = 0;
   let ultimoDia = 0;
 
   for (const r of rows) {
@@ -855,17 +882,6 @@ export function generarInformeFacturacion(
     lan += posNum(r[CONFIG.COL_LANEC_PARCIAL_KWH]);
     gra += posNum(r[CONFIG.COL_GRACA_PARCIAL_KWH]);
     aux += posNum(r[CONFIG.COL_AUX_KWH]);
-    hfo += posNum(r[CONFIG.COL_HFO_GAL]);
-    dsl += posNum(r[CONFIG.COL_DO_GAL]);
-
-    const h1i = posNum(r[CONFIG.COL_HG1_LANEC_INI]);
-    const h1f = posNum(r[CONFIG.COL_HG1_LANEC_FIN]);
-    const h2i = posNum(r[CONFIG.COL_HG2_LANEC_INI]);
-    const h2f = posNum(r[CONFIG.COL_HG2_LANEC_FIN]);
-    if (h1i > 0 && first_h1 === null) first_h1 = h1i;
-    if (h1f > 0) last_h1 = h1f;
-    if (h2i > 0 && first_h2 === null) first_h2 = h2i;
-    if (h2f > 0) last_h2 = h2f;
   }
 
   const tot_cli = lan + gra;
@@ -927,77 +943,76 @@ export function generarInformeFacturacion(
     fijoAsigU1: number, fijoAsigU2: number, fijoAsig: number,
     totalUSD: number, precioFinal: number
   ): string {
-    const energiaLabel = nombre === "TOTAL" ? "Energía consumida total (LANEC + GRACA)" : `Energía consumida por ${nombre}`;
-    const auxLabel = nombre === "TOTAL" ? "Energía consumida por auxiliares (total)" : "Energía consumida por auxiliares";
-    const totalLabel = nombre === "TOTAL" ? "Energía total a facturar (+auxiliares)" : `Energía total ${nombre} (+auxiliares)`;
+    const energiaLabel = nombre === "TOTAL" ? "Energía consumida total (LANEC + GRACA)" : `Energía consumida – ${nombre}`;
+    const auxLabel = "Auxiliares asignados (proporcional)";
+    const totalLabel = nombre === "TOTAL" ? "Energía total a facturar (+auxiliares)" : `Total facturable ${nombre} (+aux.)`;
     return `
-<div class="section-title">${secLabel} ${titulo}</div>
+<div class="rpt-section-title"><span class="rpt-section-num">${secLabel}</span>${titulo}</div>
 <table class="data-table">
-<thead><tr><th>Rubro</th><th>P. Unit</th><th>Subtotal</th></tr></thead>
+<thead><tr><th>Rubro</th><th>P. Unit [USD/kWh]</th><th>Subtotal [USD]</th></tr></thead>
 <tbody>
-<tr><td class="label">${energiaLabel}</td><td></td><td>${fmt(energiaConsumida)} kWh</td></tr>
-<tr><td class="label">${auxLabel}</td><td></td><td>${fmt(auxAsig)} kWh</td></tr>
-<tr><td class="label">${totalLabel}</td><td></td><td><strong>${fmt(totalFact)} kWh</strong></td></tr>
-<tr><td class="label">Costo Combustible + Transporte</td><td>$ ${fmt(COSTOS_VARIABLES.combustible_transporte, 4)}</td><td>$ ${fmt(varBy.combustible_transporte, 2)}</td></tr>
-<tr><td class="label">Costo Lubricantes + Químicos</td><td>$ ${fmt(COSTOS_VARIABLES.lubricantes_quimicos, 4)}</td><td>$ ${fmt(varBy.lubricantes_quimicos, 2)}</td></tr>
-<tr><td class="label">Costo Agua + Insumos</td><td>$ ${fmt(COSTOS_VARIABLES.agua_insumos, 4)}</td><td>$ ${fmt(varBy.agua_insumos, 2)}</td></tr>
-<tr><td class="label">Costo Repuestos Mantenimiento Predictivo</td><td>$ ${fmt(COSTOS_VARIABLES.repuestos_predictivo, 4)}</td><td>$ ${fmt(varBy.repuestos_predictivo, 2)}</td></tr>
-<tr><td class="label">Costo Impacto Ambiental</td><td>$ ${fmt(COSTOS_VARIABLES.impacto_ambiental, 4)}</td><td>$ ${fmt(varBy.impacto_ambiental, 2)}</td></tr>
-<tr><td class="label">Costo Servicios Auxiliares</td><td>$ ${fmt(COSTOS_VARIABLES.servicios_auxiliares, 4)}</td><td>$ ${fmt(varBy.servicios_auxiliares, 2)}</td></tr>
-<tr><td class="label">Margen Variable</td><td>$ ${fmt(COSTOS_VARIABLES.margen_variable, 4)}</td><td>$ ${fmt(varBy.margen_variable, 2)}</td></tr>
-<tr><td class="label"><strong>Costo Variable de Producción</strong></td><td><strong>$ ${fmt(COSTO_VARIABLE_TOTAL, 4)}</strong></td><td><strong>$ ${fmt(varTotal, 2)}</strong></td></tr>
-<tr><td class="label">Costo fijo asignado U1 (disponibilidad)</td><td></td><td>$ ${fmt(fijoAsigU1, 2)}</td></tr>
-<tr><td class="label">Costo fijo asignado U2 (disponibilidad)</td><td></td><td>$ ${fmt(fijoAsigU2, 2)}</td></tr>
-<tr><td class="label"><strong>Costo fijo (disponibilidad) asignado</strong></td><td></td><td><strong>$ ${fmt(fijoAsig, 2)}</strong></td></tr>
-<tr><td class="label"><strong>Subtotal</strong></td><td></td><td><strong>$ ${fmt(totalUSD, 2)}</strong> &nbsp; MAS IVA</td></tr>
-<tr><td class="label"><strong>Precio final USD/kWh</strong></td><td></td><td><strong>$ ${fmt(precioFinal, 4)}</strong> &nbsp; MAS IVA</td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Energía facturable</td></tr>
+<tr><td class="label">${energiaLabel}</td><td>—</td><td class="num">${fmt(energiaConsumida)} kWh</td></tr>
+<tr><td class="label">${auxLabel}</td><td>—</td><td class="num">${fmt(auxAsig)} kWh</td></tr>
+<tr class="rpt-row-total"><td class="label">${totalLabel}</td><td>—</td><td class="num hi">${fmt(totalFact)} kWh</td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos variables de producción</td></tr>
+<tr><td class="label">Combustible + Transporte</td><td class="num">${fmt(COSTOS_VARIABLES.combustible_transporte, 4)}</td><td class="num">$ ${fmt(varBy.combustible_transporte)}</td></tr>
+<tr><td class="label">Lubricantes + Químicos</td><td class="num">${fmt(COSTOS_VARIABLES.lubricantes_quimicos, 4)}</td><td class="num">$ ${fmt(varBy.lubricantes_quimicos)}</td></tr>
+<tr><td class="label">Agua + Insumos</td><td class="num">${fmt(COSTOS_VARIABLES.agua_insumos, 4)}</td><td class="num">$ ${fmt(varBy.agua_insumos)}</td></tr>
+<tr><td class="label">Repuestos Mantenimiento Predictivo</td><td class="num">${fmt(COSTOS_VARIABLES.repuestos_predictivo, 4)}</td><td class="num">$ ${fmt(varBy.repuestos_predictivo)}</td></tr>
+<tr><td class="label">Impacto Ambiental</td><td class="num">${fmt(COSTOS_VARIABLES.impacto_ambiental, 4)}</td><td class="num">$ ${fmt(varBy.impacto_ambiental)}</td></tr>
+<tr><td class="label">Servicios Auxiliares</td><td class="num">${fmt(COSTOS_VARIABLES.servicios_auxiliares, 4)}</td><td class="num">$ ${fmt(varBy.servicios_auxiliares)}</td></tr>
+<tr><td class="label">Margen Variable</td><td class="num">${fmt(COSTOS_VARIABLES.margen_variable, 4)}</td><td class="num">$ ${fmt(varBy.margen_variable)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td><td class="num"><strong>${fmt(COSTO_VARIABLE_TOTAL, 4)}</strong></td><td class="num"><strong>$ ${fmt(varTotal)}</strong></td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos (por disponibilidad)</td></tr>
+<tr><td class="label">Costo fijo asignado U1</td><td>—</td><td class="num">$ ${fmt(fijoAsigU1)}</td></tr>
+<tr><td class="label">Costo fijo asignado U2</td><td>—</td><td class="num">$ ${fmt(fijoAsigU2)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo fijo asignado</strong></td><td>—</td><td class="num"><strong>$ ${fmt(fijoAsig)}</strong></td></tr>
+<tr class="rpt-row-grand"><td class="label"><strong>TOTAL A FACTURAR</strong></td><td class="num"><strong>USD/kWh: ${fmt(precioFinal, 4)}</strong></td><td class="num"><strong>$ ${fmt(totalUSD)} + IVA</strong></td></tr>
 </tbody></table>`;
   }
 
-  let html = `<pre style="margin:0 0 10px 0;white-space:pre-wrap;">INFORME DE FACTURACIÓN DE ENERGÍA (MENSUAL)
-CENTRAL EL MORRO – MORRO ENERGY S.A.
-Período de facturación: ${textoPeriodo}
-</pre>`;
+  let html = rptHeader("Informe de Facturación de Energía", textoPeriodo);
 
-  html += `<div class="section-title">1. RESUMEN DE ENERGÍA FACTURABLE</div>
-<table class="data-table">
+  html += seccion(1, "Resumen de Energía Facturable");
+  html += `<table class="data-table">
 <thead><tr>
 <th>Cliente</th><th>Energía consumida [kWh]</th><th>Auxiliares asignados [kWh]</th><th>Total facturable [kWh]</th>
 </tr></thead>
 <tbody>
-<tr><td class="label">LANEC</td><td>${fmt(lan)}</td><td>${fmt(aux_lan)}</td><td><strong>${fmt(lan_fact)}</strong></td></tr>
-<tr><td class="label">GRACA</td><td>${fmt(gra)}</td><td>${fmt(aux_gra)}</td><td><strong>${fmt(gra_fact)}</strong></td></tr>
-<tr><td class="label">TOTAL</td><td>${fmt(tot_cli)}</td><td>${fmt(aux)}</td><td><strong>${fmt(tot_gen)}</strong></td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(lan)}</td><td class="num">${fmt(aux_lan)}</td><td class="num hi">${fmt(lan_fact)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(gra)}</td><td class="num">${fmt(aux_gra)}</td><td class="num hi">${fmt(gra_fact)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td class="num"><strong>${fmt(tot_cli)}</strong></td><td class="num"><strong>${fmt(aux)}</strong></td><td class="num hi"><strong>${fmt(tot_gen)}</strong></td></tr>
 </tbody></table>`;
 
-  html += tablaCliente("2.0", "COSTOS DEL MES TOTALES", "TOTAL",
+  html += tablaCliente("2.0", "Costos del Mes — Totales", "TOTAL",
     tot_cli, aux, tot_gen, varTotBy, varTotTotal, fijoTotU1, fijoTotU2, fijoTot, totalTot, precioTot);
-  html += tablaCliente("2.1", "COSTOS DEL MES LANEC", "LANEC",
+  html += tablaCliente("2.1", "Costos del Mes — LANEC", "LANEC",
     lan, aux_lan, lan_fact, varLanBy, varLanTotal, fijoLanU1, fijoLanU2, fijoLan, totalLan, precioLan);
-  html += tablaCliente("2.2", "COSTOS DEL MES GRACA", "GRACA",
+  html += tablaCliente("2.2", "Costos del Mes — GRACA", "GRACA",
     gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, totalGra, precioGra);
 
-  html += `<div class="section-title">3. COSTO FIJO POR DISPONIBILIDAD (AUDITABLE)</div>
-<table class="data-table">
+  html += seccion(3, "Costo Fijo por Disponibilidad (Auditable)");
+  html += `<table class="data-table">
 <thead><tr>
-<th>Unidad</th><th>Días mes</th><th>Días indisponibles</th><th>Factor disponibilidad</th><th>Costo fijo base [USD]</th><th>Costo fijo ajustado [USD]</th>
+<th>Unidad</th><th>Días mes</th><th>Días indisp.</th><th>Factor disp.</th><th>CF base [USD]</th><th>CF ajustado [USD]</th>
 </tr></thead>
 <tbody>
-<tr><td class="label">Unidad 1</td><td>${diasMes}</td><td>${diasFallaU1}</td><td>${fmt(dispU1, 4)}</td><td>${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD, 2)}</td><td><strong>${fmt(fijoU1, 2)}</strong></td></tr>
-<tr><td class="label">Unidad 2</td><td>${diasMes}</td><td>${diasFallaU2}</td><td>${fmt(dispU2, 4)}</td><td>${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD, 2)}</td><td><strong>${fmt(fijoU2, 2)}</strong></td></tr>
-<tr><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td></td><td></td><td><strong>${fmt(fijoTotal, 2)}</strong></td></tr>
+<tr><td class="label">Unidad 1</td><td class="num">${diasMes}</td><td class="num">${diasFallaU1}</td><td class="num">${fmt(dispU1, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU1)}</td></tr>
+<tr><td class="label">Unidad 2</td><td class="num">${diasMes}</td><td class="num">${diasFallaU2}</td><td class="num">${fmt(dispU2, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU2)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
 </tbody></table>`;
 
-  html += `<div class="section-title">4. ASIGNACIÓN DEL COSTO FIJO A CLIENTES (POR FACTOR CONTRATO)</div>
-<table class="data-table">
+  html += seccion(4, "Asignación del Costo Fijo a Clientes (Factor Contrato)");
+  html += `<table class="data-table">
 <thead><tr>
 <th>Cliente</th><th>kW contratados</th><th>Factor contrato</th>
-<th>CF U1 (disp) [USD]</th><th>CF U2 (disp) [USD]</th><th><strong>CF total asignado [USD]</strong></th>
+<th>CF U1 [USD]</th><th>CF U2 [USD]</th><th>CF total asignado [USD]</th>
 </tr></thead>
 <tbody>
-<tr><td class="label">LANEC</td><td>${fmt(P_CONTR_LANEC, 0)}</td><td>${fmt(factorContratoLan * 100, 2)} %</td><td>${fmt(fijoLanU1, 2)}</td><td>${fmt(fijoLanU2, 2)}</td><td><strong>${fmt(fijoLan, 2)}</strong></td></tr>
-<tr><td class="label">GRACA</td><td>${fmt(P_CONTR_GRACA, 0)}</td><td>${fmt(factorContratoGra * 100, 2)} %</td><td>${fmt(fijoGraU1, 2)}</td><td>${fmt(fijoGraU2, 2)}</td><td><strong>${fmt(fijoGra, 2)}</strong></td></tr>
-<tr><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td>${fmt(fijoU1, 2)}</td><td>${fmt(fijoU2, 2)}</td><td><strong>${fmt(fijoTotal, 2)}</strong></td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(P_CONTR_LANEC, 0)}</td><td class="num">${fmt(factorContratoLan * 100, 2)} %</td><td class="num">${fmt(fijoLanU1)}</td><td class="num">${fmt(fijoLanU2)}</td><td class="num hi">${fmt(fijoLan)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num hi">${fmt(fijoGra)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
 </tbody></table>`;
 
   return html;

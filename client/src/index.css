@@ -160,67 +160,372 @@
   }
 }
 
-/* ===== ESTILOS DEL INFORME GENERADO ===== */
+/* ===========================
+   ESTILOS DEL INFORME GENERADO
+   =========================== */
+
 .report-content {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: #1b2134;
 }
 
-.report-content pre {
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  color: #1b3b6f;
-  white-space: pre-wrap;
-  margin: 0 0 12px 0;
-  border-bottom: 2px solid #1b3b6f;
-  padding-bottom: 8px;
+/* ── ENCABEZADO ─────────────────────────── */
+
+.report-content .rpt-header {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px rgba(27,59,111,0.14);
 }
 
-.report-content .section-title {
-  font-weight: 700;
-  margin: 14px 0 6px;
-  color: #1b3b6f;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 4px 8px;
-  background: #e4ecff;
-  border-radius: 4px;
+.report-content .rpt-header-body {
+  background: linear-gradient(120deg, #1b3b6f 0%, #1260a8 55%, #0e7fd4 100%);
+  color: #fff;
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
 }
+
+.report-content .rpt-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-content .rpt-logo-circle {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.12);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.report-content .rpt-empresa {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.report-content .rpt-tipo {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 2px;
+}
+
+.report-content .rpt-header-right {
+  text-align: right;
+}
+
+.report-content .rpt-subtitulo-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+
+.report-content .rpt-subtitulo {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.report-content .rpt-header-stripe {
+  height: 4px;
+  background: linear-gradient(90deg, #facc15, #fb923c, #f87171, #c084fc);
+}
+
+/* ── SECCIONES ──────────────────────────── */
+
+.report-content .rpt-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 7px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1b3b6f;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-left: 3px solid #1260a8;
+  padding-left: 9px;
+}
+
+.report-content .rpt-section-num {
+  background: #1260a8;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 1px 5px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+
+/* ── TABLAS ─────────────────────────────── */
 
 .report-content .data-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 4px 0 10px;
+  margin: 4px 0 12px;
   font-size: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(27,59,111,0.07);
 }
 
-.report-content .data-table thead {
-  background: linear-gradient(90deg, #e4ecff, #f5f7ff);
+.report-content .data-table thead tr {
+  background: linear-gradient(90deg, #dce8fa, #eff4fd);
 }
 
 .report-content .data-table th {
-  border: 1px solid #d1d5e4;
-  padding: 5px 7px;
+  border: 1px solid #c8d6ee;
+  padding: 6px 9px;
   text-align: left;
   font-weight: 600;
+  font-size: 11px;
   color: #1b3b6f;
+  white-space: nowrap;
 }
 
 .report-content .data-table td {
-  border: 1px solid #e0e4f2;
-  padding: 5px 7px;
+  border: 1px solid #e5ecf8;
+  padding: 5px 9px;
   text-align: right;
-  color: #111827;
+  color: #1f2d3d;
+}
+
+.report-content .data-table tbody tr:nth-child(even) {
+  background: #f8faff;
+}
+
+.report-content .data-table tbody tr:hover {
+  background: #eef5ff;
+  transition: background 0.1s;
 }
 
 .report-content .data-table td.label {
   text-align: left;
   color: #374151;
   font-weight: 500;
+}
+
+.report-content .data-table td.num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.report-content .data-table td.hi {
+  font-weight: 700;
+  color: #1b3b6f;
+}
+
+.report-content .data-table td.warn {
+  color: #b45309;
+  font-weight: 600;
+}
+
+/* Filas especiales */
+.report-content .data-table tr.rpt-row-total td {
+  background: #e8f0fd;
+  font-weight: 600;
+  border-top: 1.5px solid #b8cce8;
+}
+
+.report-content .data-table tr.rpt-row-grupo td {
+  background: #f0f4fb;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1260a8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-top: 1.5px solid #c8d6ee;
+}
+
+.report-content .data-table tr.rpt-row-grand td {
+  background: linear-gradient(90deg, #dce8fa, #e8f4fd);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1b3b6f;
+  border-top: 2px solid #1260a8;
+}
+
+/* ── KPIs DESTACADOS ────────────────────── */
+
+.report-content .rpt-kpi-row {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 14px;
+  flex-wrap: wrap;
+}
+
+.report-content .rpt-kpi-card {
+  flex: 1;
+  min-width: 100px;
+  background: linear-gradient(135deg, #f0f6ff, #e8f0fd);
+  border: 1px solid #c8d6ee;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.report-content .rpt-kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #4b6a9b;
+  margin-bottom: 4px;
+}
+
+.report-content .rpt-kpi-big {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1b3b6f;
+  line-height: 1.1;
+}
+
+.report-content .rpt-kpi-unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b6a9b;
+  margin-left: 3px;
+}
+
+.report-content .rpt-kpi-sub {
+  font-size: 10px;
+  color: #6b82a8;
+  margin-top: 2px;
+}
+
+.report-content .rpt-kpi-inline {
+  font-size: 12px;
+  color: #374151;
+  margin: 2px 0 10px;
+}
+
+.report-content .rpt-kpi-val {
+  font-weight: 700;
+  color: #1b3b6f;
+  font-size: 13px;
+}
+
+/* ── CAJA COMBUSTIBLE EJECUTIVA ─────────── */
+
+.report-content .rpt-fuel-box {
+  background: #f9fbff;
+  border: 1px solid #c8d6ee;
+  border-left: 4px solid #1260a8;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 4px 0 14px;
+}
+
+.report-content .rpt-fuel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-content .rpt-fuel-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1b3b6f;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.report-content .rpt-fuel-causa {
+  font-size: 11.5px;
+  color: #4b5563;
+  margin: 0 0 8px;
+  font-style: italic;
+}
+
+/* ── BADGES (SEMÁFORO) ──────────────────── */
+
+.report-content .badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  border-width: 1px;
+  border-style: solid;
+}
+
+.report-content .badge-verde    { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.report-content .badge-amarillo { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+.report-content .badge-naranja  { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+.report-content .badge-rojo     { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.report-content .badge-nd       { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+
+/* ── OBSERVACIONES ──────────────────────── */
+
+.report-content .rpt-obs {
+  background: #f9fafb;
+  border: 1px solid #e5ecf8;
+  border-left: 3px solid #64748b;
+  border-radius: 4px;
+  padding: 10px 13px;
+  font-size: 12.5px;
+  color: #374151;
+  line-height: 1.6;
+}
+
+.report-content .rpt-obs-empty {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ── NOTAS / AVISOS ─────────────────────── */
+
+.report-content .rpt-notice {
+  background: #f0f4fb;
+  border: 1px solid #c8d6ee;
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+  color: #4b6a9b;
+  margin: 4px 0 12px;
+}
+
+.report-content .rpt-notice-error {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.report-content .rpt-nota-tecnica {
+  background: #f8f9ff;
+  border: 1px dashed #bfcde8;
+  border-radius: 5px;
+  padding: 10px 13px;
+  font-size: 10.5px;
+  color: #4b5563;
+  line-height: 1.55;
+  margin-top: 10px;
+}
+
+.report-content .rpt-muted {
+  color: #9ca3af;
+  font-size: 11px;
 }
 
 .report-content p {
