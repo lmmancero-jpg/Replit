@@ -5,51 +5,38 @@
  *
  * Arquitectura:
  *  1. html2canvas captura el DOM REAL (sin clonar) a escala 3× → nitidez de
- *     impresión. No se usa html2pdf para evitar la clonación de DOM que borra
- *     el contenido de los <canvas> de Chart.js.
+ *     impresión. NUNCA se pasa `width` a html2canvas para evitar que clips
+ *     trunquen contenido; assemblePages escala cualquier ancho al A4.
  *
- *  2. Algoritmo de saltos de página por escaneo de píxeles:
- *     En lugar de depender de CSS break-inside o medición de DOM (que varía
- *     según el viewport), se escanea horizontalmente el canvas ya renderizado.
- *     Para cada límite teórico de página se busca la línea de píxeles con mayor
- *     luminosidad media dentro de ±SEARCH_RANGE px → ese espacio en blanco entre
- *     filas/bloques es el punto de corte real. Nunca corta dentro de una celda.
+ *  2. Algoritmo de saltos de página hacia atrás:
+ *     findSafeCut busca el espacio en blanco más cercano buscando SOLO hacia
+ *     atrás desde el límite teórico (máx. BACK_RANGE px). Esto garantiza:
+ *       (a) cutY ≤ rawEnd → la imagen NUNCA desborda la página.
+ *       (b) 300px de margen hacia atrás alcanza el hueco entre filas de
+ *           gráficos (≈215px de alto), evitando cortes dentro de un gráfico.
  *
  *  3. Las métricas capturan cada sección [data-pdf-section] de forma
- *     independiente → ningún gráfico queda partido entre páginas.
+ *     independiente → ningún gráfico queda partido entre secciones.
  *
- *  4. Imágenes exportadas en JPEG 0.93 → excelente nitidez, archivo compacto.
+ *  4. Imágenes exportadas en JPEG 0.92 → excelente nitidez, archivo compacto.
  */
 
-// ─── Constantes de calidad y layout ───────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
-/** Factor de resolución: 3× da ~300dpi efectivos → calidad de imprenta. */
-const RENDER_SCALE = 3;
-
-/** Calidad JPEG [0-1]. 0.93 preserva bordes y texto sin artefactos visibles. */
-const JPEG_QUALITY = 0.93;
-
-/**
- * windowWidth para informes: renderiza el HTML como si el viewport fuese
- * 1250px → el contenido se comprime proporcionalmente al exportar a A4,
- * resultando en texto más pequeño y más filas por página.
- */
-const REPORT_WIN_W = 1250;
-
-/**
- * Ancho de captura para informes en px (A4 @96dpi = 794px).
- * html2canvas usa este valor para ajustar el layout antes de capturar.
- */
-const REPORT_CAPTURE_W = 794;
-
-/** Ancho de ventana simulado para métricas: A4 landscape @96dpi = 1122px. */
+const RENDER_SCALE  = 3;
+const JPEG_QUALITY  = 0.92;
+const REPORT_WIN_W  = 1250;
 const METRICS_WIN_W = 1122;
-
-/** Rango de búsqueda ±px alrededor del límite teórico de página. */
-const SEARCH_RANGE = 90;
-
-/** Muestras horizontales por línea escaneada (velocidad vs. precisión). */
-const SCAN_SAMPLES = 150;
+/**
+ * Distancia máxima hacia atrás para buscar un espacio en blanco antes del
+ * límite teórico de página. 300px canvas ≈ 100px DOM @scale-3.
+ * Las filas de gráficos de 155px (altura DOM) dan huecos de ≈36-72px canvas;
+ * el hueco más alejado del límite teórico es ≈220px canvas → 300px garantiza
+ * encontrarlo.
+ */
+const BACK_RANGE    = 300;
+/** Muestras horizontales por línea escaneada. */
+const SCAN_SAMPLES  = 150;
 
 // ─── Carga diferida de dependencias ───────────────────────────────────────────
 
@@ -73,14 +60,13 @@ async function loadDeps(): Promise<{ html2canvas: any; jsPDF: any }> {
 
 /**
  * Captura un elemento del DOM real a escala RENDER_SCALE.
- * allowTaint:false → canvas no taintado → podemos leer sus píxeles después.
- * Todos los canvas de Chart.js son mismo origen, no causan taint.
+ * NO se pasa `width` para no truncar el contenido — el escalado al A4
+ * lo realiza assemblePages mediante la relación pxPerMm.
  */
 async function captureElement(
-  el:        HTMLElement,
-  h2c:       any,
-  captureW?: number,
-  windowW?:  number,
+  el:       HTMLElement,
+  h2c:      any,
+  windowW?: number,
 ): Promise<HTMLCanvasElement> {
   const opts: Record<string, unknown> = {
     scale:           RENDER_SCALE,
@@ -89,28 +75,29 @@ async function captureElement(
     logging:         false,
     backgroundColor: "#ffffff",
   };
-  if (captureW !== undefined) opts.width       = captureW;
-  if (windowW  !== undefined) opts.windowWidth = windowW;
+  if (windowW !== undefined) opts.windowWidth = windowW;
   return h2c(el, opts) as Promise<HTMLCanvasElement>;
 }
 
-// ─── Algoritmo de corte seguro por escaneo de píxeles ─────────────────────────
+// ─── Algoritmo de corte seguro (solo hacia atrás) ─────────────────────────────
 
 /**
- * Dado el canvas renderizado y un punto teórico de corte (targetY en px),
- * busca dentro de ±SEARCH_RANGE px la línea horizontal con mayor luminosidad
- * media (= espacio en blanco entre filas/bloques). Devuelve el Y óptimo.
+ * Busca hacia atrás desde `targetY` (límite teórico de página) la línea
+ * horizontal de mayor luminosidad media (= espacio en blanco entre filas).
  *
- * Coeficientes de luminancia perceptual Rec.709 (idénticos al ojo humano).
- * Penaliza distancia al punto teórico → el corte no se desplaza demasiado.
+ * Restricción crítica: maxY = targetY  →  cutY ≤ rawEnd  →  la franja de
+ * imagen NUNCA excede la altura de la página PDF.
+ *
+ * Con BACK_RANGE = 300px canvas (@scale-3 = 100px DOM), el algoritmo alcanza
+ * el hueco entre filas de gráficos de 155px de altura DOM.
  */
 function findSafeCut(canvas: HTMLCanvasElement, targetY: number): number {
   const ctx = canvas.getContext("2d");
   if (!ctx) return targetY;
 
   const w    = canvas.width;
-  const minY = Math.max(1,               targetY - SEARCH_RANGE);
-  const maxY = Math.min(canvas.height - 2, targetY + SEARCH_RANGE);
+  const minY = Math.max(1,               targetY - BACK_RANGE);
+  const maxY = Math.min(canvas.height - 2, targetY);          // ← solo atrás
   const step = Math.max(1, Math.floor(w / SCAN_SAMPLES));
 
   let bestY     = targetY;
@@ -126,7 +113,9 @@ function findSafeCut(canvas: HTMLCanvasElement, targetY: number): number {
       n++;
     }
     lum /= n;
-    const score = lum - Math.abs(y - targetY) * 1.8;
+    // Penalizar distancia: favorecer cortes cerca del límite teórico
+    // pero sólo hacia atrás (mayor Y = más cercano al límite = menor penalización)
+    const score = lum - (targetY - y) * 0.6;
     if (score > bestScore) { bestScore = score; bestY = y; }
   }
   return bestY;
@@ -135,35 +124,33 @@ function findSafeCut(canvas: HTMLCanvasElement, targetY: number): number {
 // ─── Ensamblado de páginas en jsPDF ───────────────────────────────────────────
 
 /**
- * Recorre el canvas completo cortándolo en franjas (= páginas PDF).
- * Cada punto de corte se calcula con findSafeCut para caer en espacios blancos.
- * El objeto isFirstPage se pasa por referencia para manejar múltiples secciones.
+ * Divide el canvas en franjas verticales y las distribuye en páginas PDF.
+ * Cada corte se localiza en espacio en blanco mediante findSafeCut.
+ * isFirstPage se pasa por referencia para encadenar secciones.
  */
 function assemblePages(
-  pdf:          any,
-  canvas:       HTMLCanvasElement,
-  contentMmW:   number,
-  contentMmH:   number,
-  marginMm:     number,
-  isFirstPage:  { value: boolean },
+  pdf:         any,
+  canvas:      HTMLCanvasElement,
+  contentMmW:  number,
+  contentMmH:  number,
+  marginMm:    number,
+  isFirstPage: { value: boolean },
 ): void {
-  const pxPerMm  = canvas.width / contentMmW;
-  const pageHPx  = Math.round(contentMmH * pxPerMm);
-  const totalH   = canvas.height;
-  let   yPx      = 0;
+  const pxPerMm = canvas.width / contentMmW;
+  const pageHPx = Math.round(contentMmH * pxPerMm);
+  const totalH  = canvas.height;
+  let   yPx     = 0;
 
   while (yPx < totalH) {
     if (!isFirstPage.value) pdf.addPage();
     isFirstPage.value = false;
 
-    // Punto de corte seguro: busca espacio blanco entre filas
     const rawEnd = yPx + pageHPx;
+    // findSafeCut devuelve ≤ rawEnd → sliceH ≤ pageHPx → sliceMmH ≤ contentMmH
     const cutY   = rawEnd < totalH ? findSafeCut(canvas, rawEnd) : totalH;
-
     const sliceH   = Math.max(1, cutY - yPx);
     const sliceMmH = sliceH / pxPerMm;
 
-    // Crear franja del canvas para esta página
     const slice   = document.createElement("canvas");
     slice.width   = canvas.width;
     slice.height  = Math.ceil(sliceH);
@@ -192,15 +179,8 @@ function assemblePages(
 /**
  * Exporta un informe (diario / mensual / facturación) a PDF A4 portrait.
  *
- * Estrategia:
- * - html2canvas captura el .report-wrapper al ancho A4 (794px) con viewport
- *   simulado de 1250px → fuente más compacta → más contenido por página.
- * - Escala 3× → nitidez de impresión (~300dpi equivalente).
- * - Cortes de página detectados por luminosidad de píxeles → nunca corta
- *   dentro de una celda de tabla.
- *
- * @param element  El .report-wrapper visible en el DOM del generador.
- * @param filename Nombre del archivo resultante (incluye .pdf).
+ * Captura el elemento .report-wrapper a su ancho natural en el DOM (sin
+ * clip de width). assemblePages lo escala a los 194mm de ancho útil del A4.
  */
 export async function exportReportPDF(
   element:  HTMLElement,
@@ -208,12 +188,11 @@ export async function exportReportPDF(
 ): Promise<void> {
   const { html2canvas, jsPDF } = await loadDeps();
 
-  // A4 portrait: 210 × 297 mm, margen 8 mm → área útil 194 × 281 mm
   const marginMm   = 8;
-  const contentMmW = 210 - marginMm * 2;
-  const contentMmH = 297 - marginMm * 2;
+  const contentMmW = 210 - marginMm * 2;   // 194 mm
+  const contentMmH = 297 - marginMm * 2;   // 281 mm
 
-  const canvas = await captureElement(element, html2canvas, REPORT_CAPTURE_W, REPORT_WIN_W);
+  const canvas = await captureElement(element, html2canvas, REPORT_WIN_W);
 
   const pdf         = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const isFirstPage = { value: true };
@@ -223,18 +202,8 @@ export async function exportReportPDF(
 }
 
 /**
- * Exporta las métricas a PDF A4 landscape.
- *
- * Estrategia:
- * - Cada sección [data-pdf-section] se captura con html2canvas de forma
- *   independiente → Chart.js pinta sus canvases antes de la captura (no hay
- *   clonación de DOM) → gráficos siempre completos.
- * - Si una sección supera la altura de una página A4 landscape, el algoritmo
- *   de píxeles busca el corte en el espacio entre filas de gráficos.
- * - Escala 3× → nitidez de impresión.
- *
- * @param container El div ref del print container en metrics.tsx.
- * @param period    Período del informe, e.g. "03_2026".
+ * Exporta las métricas a PDF A4 landscape, capturando cada sección
+ * [data-pdf-section] de forma independiente para preservar los gráficos.
  */
 export async function exportMetricsPDF(
   container: HTMLElement,
@@ -242,10 +211,9 @@ export async function exportMetricsPDF(
 ): Promise<void> {
   const { html2canvas, jsPDF } = await loadDeps();
 
-  // A4 landscape: 297 × 210 mm, margen 7 mm → área útil 283 × 196 mm
   const marginMm   = 7;
-  const contentMmW = 297 - marginMm * 2;
-  const contentMmH = 210 - marginMm * 2;
+  const contentMmW = 297 - marginMm * 2;   // 283 mm
+  const contentMmH = 210 - marginMm * 2;   // 196 mm
 
   const sections = Array.from(
     container.querySelectorAll<HTMLElement>("[data-pdf-section]"),
@@ -255,12 +223,7 @@ export async function exportMetricsPDF(
   const isFirstPage = { value: true };
 
   for (const section of sections) {
-    /*
-     * No pasamos captureW: html2canvas usa el ancho real del elemento en el
-     * DOM (ya fijado por el contenedor position:fixed de 1122px).
-     * windowWidth:1122 asegura correcto cálculo de layout CSS.
-     */
-    const canvas = await captureElement(section, html2canvas, undefined, METRICS_WIN_W);
+    const canvas = await captureElement(section, html2canvas, METRICS_WIN_W);
     assemblePages(pdf, canvas, contentMmW, contentMmH, marginMm, isFirstPage);
   }
 
