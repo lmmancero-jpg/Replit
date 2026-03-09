@@ -256,12 +256,20 @@ function seccion(n: string | number, titulo: string): string {
 interface FuelMetric {
   date: Date;
   kWh: number;
+  gen1: number;
+  gen2: number;
   hfo: number;
   dsl: number;
   fuel: number;
+  fuel_u1: number;
+  fuel_u2: number;
   pctDO: number;
   gal_h: number;
+  gal_h_u1: number;
+  gal_h_u2: number;
   horasOp: number;
+  h1: number;
+  h2: number;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,6 +279,8 @@ function buildFuelMetricFromRow(row: any[]): FuelMetric | null {
   const aux = posNum(row[CONFIG.COL_AUX_KWH]);
   const lan = posNum(row[CONFIG.COL_LANEC_PARCIAL_KWH]);
   const gra = posNum(row[CONFIG.COL_GRACA_PARCIAL_KWH]);
+  const gen1 = posNum(row[CONFIG.COL_GEN1_KWH]);
+  const gen2 = posNum(row[CONFIG.COL_GEN2_KWH]);
   const kWh = aux + lan + gra;
   const hfo = posNum(row[CONFIG.COL_HFO_GAL]);
   const dsl = posNum(row[CONFIG.COL_DO_GAL]);
@@ -279,12 +289,22 @@ function buildFuelMetricFromRow(row: any[]): FuelMetric | null {
   const h2 = Math.max(0, posNum(row[CONFIG.COL_HG2_LANEC_FIN]) - posNum(row[CONFIG.COL_HG2_LANEC_INI]));
   const horasOp = Math.max(h1, h2);
   if (!(kWh > 0 && fuel > 0 && horasOp > 0)) return null;
+
+  // Prorrateo del combustible total por energía generada por cada unidad
+  const genTot = gen1 + gen2;
+  const w1 = genTot > 0 ? gen1 / genTot : (h1 > 0 ? h1 / (h1 + h2 || 1) : 0);
+  const w2 = genTot > 0 ? gen2 / genTot : (h2 > 0 ? h2 / (h1 + h2 || 1) : 0);
+  const fuel_u1 = fuel * w1;
+  const fuel_u2 = fuel * w2;
+
   return {
     date: new Date(d.getFullYear(), d.getMonth(), d.getDate()),
-    kWh, hfo, dsl, fuel,
+    kWh, gen1, gen2, hfo, dsl, fuel, fuel_u1, fuel_u2,
     pctDO: dsl / fuel,
     gal_h: fuel / horasOp,
-    horasOp,
+    gal_h_u1: h1 > 0 ? fuel_u1 / h1 : NaN,
+    gal_h_u2: h2 > 0 ? fuel_u2 / h2 : NaN,
+    horasOp, h1, h2,
   };
 }
 
@@ -325,11 +345,13 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     if (!win90 || win90.length < 20) {
       return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: Información insuficiente para referencia 90D (días válidos: ${(win90||[]).length}).</div>`;
     }
-    const galh_ref = meanSafe(win90.map(d => d.gal_h));
-    const pctDO_ref = meanSafe(win90.map(d => d.pctDO));
+    const galh_ref    = meanSafe(win90.map(d => d.gal_h));
+    const galh_ref_u1 = meanSafe(win90.filter(d => d.h1 > 0).map(d => d.gal_h_u1));
+    const galh_ref_u2 = meanSafe(win90.filter(d => d.h2 > 0).map(d => d.gal_h_u2));
+    const pctDO_ref   = meanSafe(win90.map(d => d.pctDO));
     const fmtPct = (x: number) => Number.isFinite(x) ? (x * 100).toFixed(1) + "%" : "—";
-    const fmt1 = (x: number) => Number.isFinite(x) ? x.toFixed(1) : "—";
-    const fmt0 = (x: number) => Number.isFinite(x) ? x.toFixed(0) : "—";
+    const fmt1   = (x: number) => Number.isFinite(x) ? x.toFixed(1) : "—";
+    const fmt0   = (x: number) => Number.isFinite(x) ? x.toFixed(0) : "—";
 
     if (String(mode).toLowerCase() !== "monthly") {
       const key = jsDateKey(fechaJS);
@@ -340,27 +362,30 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       }
       if (!today) return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: No se encontró un día válido para análisis.</div>`;
 
-      const delta_galh = today.gal_h - galh_ref;
+      const delta_galh    = today.gal_h - galh_ref;
+      const delta_galh_u1 = Number.isFinite(today.gal_h_u1) && Number.isFinite(galh_ref_u1) ? today.gal_h_u1 - galh_ref_u1 : NaN;
+      const delta_galh_u2 = Number.isFinite(today.gal_h_u2) && Number.isFinite(galh_ref_u2) ? today.gal_h_u2 - galh_ref_u2 : NaN;
       const delta_gal_dia = Number.isFinite(delta_galh) ? Math.max(0, delta_galh) * today.horasOp : NaN;
-      const m = today.date.getMonth(), y = today.date.getFullYear();
-      const end = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
+      const dm = today.date.getMonth(), dy = today.date.getFullYear();
+      const endD = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
       let delta_mes = 0;
       for (const d of metrics) {
-        if (d.date.getFullYear() === y && d.date.getMonth() === m && d.date <= end) {
+        if (d.date.getFullYear() === dy && d.date.getMonth() === dm && d.date <= endD) {
           const dif = d.gal_h - galh_ref;
           if (dif > 0) delta_mes += dif * d.horasOp;
         }
       }
 
-      let estado = "NORMAL";
-      if (today.pctDO > pctDO_ref + 0.20 && today.gal_h > galh_ref * 1.20) { estado = "CRÍTICO"; }
-      else if (today.pctDO > pctDO_ref + 0.10 || today.gal_h > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; }
-
       let causa = "Operación dentro de los parámetros de referencia.";
-      if (estado !== "NORMAL") {
-        if (today.pctDO > pctDO_ref + 0.10) causa = "Mayor uso de Diésel respecto a la referencia 90D (evento operacional).";
-        else causa = "Consumo por hora elevado respecto a la referencia 90D (revisar operación).";
-      }
+      if (today.pctDO > pctDO_ref + 0.10) causa = "Mayor uso de Diésel respecto a la referencia 90D (evento operacional).";
+      else if (today.gal_h > galh_ref * 1.10) causa = "Consumo por hora elevado respecto a la referencia 90D (revisar operación).";
+
+      const rowU1 = today.h1 > 0
+        ? `<tr><td class="label">Consumo U1 — est. (gal/h)</td><td>${fmt1(today.gal_h_u1)}</td><td>${fmt1(galh_ref_u1)}</td><td class="num ${Number.isFinite(delta_galh_u1) && delta_galh_u1 > 0 ? "warn" : ""}">${Number.isFinite(delta_galh_u1) ? fmt1(delta_galh_u1) : "—"}</td></tr>`
+        : `<tr><td class="label">Consumo U1 — est. (gal/h)</td><td colspan="3" style="text-align:left;color:#9ca3af">Unidad 1 no operó este día</td></tr>`;
+      const rowU2 = today.h2 > 0
+        ? `<tr><td class="label">Consumo U2 — est. (gal/h)</td><td>${fmt1(today.gal_h_u2)}</td><td>${fmt1(galh_ref_u2)}</td><td class="num ${Number.isFinite(delta_galh_u2) && delta_galh_u2 > 0 ? "warn" : ""}">${Number.isFinite(delta_galh_u2) ? fmt1(delta_galh_u2) : "—"}</td></tr>`
+        : `<tr><td class="label">Consumo U2 — est. (gal/h)</td><td colspan="3" style="text-align:left;color:#9ca3af">Unidad 2 no operó este día</td></tr>`;
 
       return `<div class="rpt-fuel-box">
   <div class="rpt-fuel-header">
@@ -372,44 +397,55 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       <th>Indicador</th>
       <th>Día del informe</th>
       <th>Referencia 90D</th>
+      <th>Desviación</th>
     </tr></thead>
     <tbody>
-      <tr><td class="label">% Diésel</td><td>${fmtPct(today.pctDO)}</td><td>${fmtPct(pctDO_ref)}</td></tr>
-      <tr><td class="label">Consumo (gal/h)</td><td>${fmt1(today.gal_h)}</td><td>${fmt1(galh_ref)}</td></tr>
-      <tr><td class="label">Sobreconsumo estimado (gal/h)</td><td>${fmt1(Math.max(0, delta_galh))}</td><td>—</td></tr>
-      <tr><td class="label">Sobreconsumo día (gal)</td><td>${fmt0(delta_gal_dia)}</td><td>—</td></tr>
-      <tr><td class="label">Sobreconsumo acumulado mes (gal)</td><td>${fmt0(delta_mes)}</td><td>—</td></tr>
+      <tr><td class="label">% Diésel (planta)</td><td>${fmtPct(today.pctDO)}</td><td>${fmtPct(pctDO_ref)}</td><td class="num ${today.pctDO > pctDO_ref + 0.05 ? "warn" : ""}">${fmtPct(today.pctDO - pctDO_ref)}</td></tr>
+      <tr><td class="label">Consumo total planta (gal/h)</td><td>${fmt1(today.gal_h)}</td><td>${fmt1(galh_ref)}</td><td class="num ${delta_galh > 0 ? "warn" : ""}">${fmt1(delta_galh)}</td></tr>
+      ${rowU1}
+      ${rowU2}
+      <tr class="rpt-row-total"><td class="label">Sobreconsumo estimado día (gal)</td><td class="num" colspan="3">${fmt0(delta_gal_dia)}</td></tr>
+      <tr class="rpt-row-total"><td class="label">Sobreconsumo acumulado mes (gal)</td><td class="num" colspan="3">${fmt0(delta_mes)}</td></tr>
     </tbody>
   </table>
+  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">* Consumo por unidad estimado por prorrateo proporcional a energía generada (kWh). No hay medidores individuales de combustible.</p>
 </div>`;
     }
 
     // MENSUAL
-    const end = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
-    const y = end.getFullYear(), m = end.getMonth();
+    const endM = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
+    const yM = endM.getFullYear(), mM = endM.getMonth();
     let sumFuel = 0, sumDsl = 0, sumHoras = 0;
+    let sumFuelU1 = 0, sumFuelU2 = 0, sumH1 = 0, sumH2 = 0;
     for (const d of metrics) {
-      if (d.date.getFullYear() === y && d.date.getMonth() === m && d.date <= end) {
-        sumFuel += d.fuel; sumDsl += d.dsl; sumHoras += d.horasOp;
+      if (d.date.getFullYear() === yM && d.date.getMonth() === mM && d.date <= endM) {
+        sumFuel  += d.fuel;  sumDsl   += d.dsl;  sumHoras += d.horasOp;
+        sumFuelU1 += d.fuel_u1; sumFuelU2 += d.fuel_u2;
+        sumH1 += d.h1; sumH2 += d.h2;
       }
     }
     if (!(sumFuel > 0 && sumHoras > 0)) {
       return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: Sin datos suficientes del mes.</div>`;
     }
-    const pctDO_mes = sumDsl / sumFuel;
-    const galh_mes = sumFuel / sumHoras;
-    const delta_galh = galh_mes - galh_ref;
-    const delta_periodo = Math.max(0, delta_galh) * sumHoras;
-
-    let estado = "NORMAL";
-    if (pctDO_mes > pctDO_ref + 0.20 && galh_mes > galh_ref * 1.20) { estado = "CRÍTICO"; }
-    else if (pctDO_mes > pctDO_ref + 0.10 || galh_mes > galh_ref * 1.10) { estado = "ALERTA OPERATIVA"; }
+    const pctDO_mes  = sumDsl / sumFuel;
+    const galh_mes   = sumFuel / sumHoras;
+    const galh_mes_u1 = sumH1 > 0 ? sumFuelU1 / sumH1 : NaN;
+    const galh_mes_u2 = sumH2 > 0 ? sumFuelU2 / sumH2 : NaN;
+    const delta_galh     = galh_mes - galh_ref;
+    const delta_galh_u1m = Number.isFinite(galh_mes_u1) && Number.isFinite(galh_ref_u1) ? galh_mes_u1 - galh_ref_u1 : NaN;
+    const delta_galh_u2m = Number.isFinite(galh_mes_u2) && Number.isFinite(galh_ref_u2) ? galh_mes_u2 - galh_ref_u2 : NaN;
+    const delta_periodo  = Math.max(0, delta_galh) * sumHoras;
 
     let causa = "Operación dentro de los parámetros de referencia.";
-    if (estado !== "NORMAL") {
-      if (pctDO_mes > pctDO_ref + 0.10) causa = "Mayor uso de Diésel en el mes respecto a la referencia 90D.";
-      else causa = "Consumo por hora del mes elevado respecto a la referencia 90D.";
-    }
+    if (pctDO_mes > pctDO_ref + 0.10) causa = "Mayor uso de Diésel en el mes respecto a la referencia 90D.";
+    else if (galh_mes > galh_ref * 1.10) causa = "Consumo por hora del mes elevado respecto a la referencia 90D.";
+
+    const rowU1m = sumH1 > 0
+      ? `<tr><td class="label">Consumo U1 — est. (gal/h)</td><td>${fmt1(galh_mes_u1)}</td><td>${fmt1(galh_ref_u1)}</td><td class="num ${Number.isFinite(delta_galh_u1m) && delta_galh_u1m > 0 ? "warn" : ""}">${Number.isFinite(delta_galh_u1m) ? fmt1(delta_galh_u1m) : "—"}</td></tr>`
+      : `<tr><td class="label">Consumo U1 — est. (gal/h)</td><td colspan="3" style="text-align:left;color:#9ca3af">Unidad 1 sin horas en el mes</td></tr>`;
+    const rowU2m = sumH2 > 0
+      ? `<tr><td class="label">Consumo U2 — est. (gal/h)</td><td>${fmt1(galh_mes_u2)}</td><td>${fmt1(galh_ref_u2)}</td><td class="num ${Number.isFinite(delta_galh_u2m) && delta_galh_u2m > 0 ? "warn" : ""}">${Number.isFinite(delta_galh_u2m) ? fmt1(delta_galh_u2m) : "—"}</td></tr>`
+      : `<tr><td class="label">Consumo U2 — est. (gal/h)</td><td colspan="3" style="text-align:left;color:#9ca3af">Unidad 2 sin horas en el mes</td></tr>`;
 
     return `<div class="rpt-fuel-box">
   <div class="rpt-fuel-header">
@@ -421,13 +457,17 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       <th>Indicador</th>
       <th>Mes (acumulado)</th>
       <th>Referencia 90D</th>
+      <th>Desviación</th>
     </tr></thead>
     <tbody>
-      <tr><td class="label">% Diésel</td><td>${fmtPct(pctDO_mes)}</td><td>${fmtPct(pctDO_ref)}</td></tr>
-      <tr><td class="label">Consumo (gal/h)</td><td>${fmt1(galh_mes)}</td><td>${fmt1(galh_ref)}</td></tr>
-      <tr><td class="label">Sobreconsumo periodo (gal)</td><td>${fmt0(delta_periodo)}</td><td>—</td></tr>
+      <tr><td class="label">% Diésel (planta)</td><td>${fmtPct(pctDO_mes)}</td><td>${fmtPct(pctDO_ref)}</td><td class="num ${pctDO_mes > pctDO_ref + 0.05 ? "warn" : ""}">${fmtPct(pctDO_mes - pctDO_ref)}</td></tr>
+      <tr><td class="label">Consumo total planta (gal/h)</td><td>${fmt1(galh_mes)}</td><td>${fmt1(galh_ref)}</td><td class="num ${delta_galh > 0 ? "warn" : ""}">${fmt1(delta_galh)}</td></tr>
+      ${rowU1m}
+      ${rowU2m}
+      <tr class="rpt-row-total"><td class="label">Sobreconsumo estimado período (gal)</td><td class="num" colspan="3">${fmt0(delta_periodo)}</td></tr>
     </tbody>
   </table>
+  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">* Consumo por unidad estimado por prorrateo proporcional a energía generada (kWh). No hay medidores individuales de combustible.</p>
 </div>`;
   } catch (e) {
     console.error("FuelExecutive error:", e);
@@ -624,13 +664,25 @@ export function generarInformeDiario(
 <tr><td class="label">Auxiliares</td><td class="num">${fmt(aux_kwh)}</td><td>${horasOperDia > 0 ? fmt(pmed_aux, 1) : "—"}</td><td>${fmt(share_aux, 1)}</td></tr>
 </tbody></table>`;
 
+  // Consumo por unidad (prorrateo por energía generada)
+  const genTot = gen1_kwh + gen2_kwh;
+  const w1 = genTot > 0 ? gen1_kwh / genTot : (u1_dia > 0 ? u1_dia / (u1_dia + u2_dia || 1) : 0);
+  const w2 = genTot > 0 ? gen2_kwh / genTot : (u2_dia > 0 ? u2_dia / (u1_dia + u2_dia || 1) : 0);
+  const fuel_u1 = fuelTot * w1;
+  const fuel_u2 = fuelTot * w2;
+  const galh_u1 = u1_dia > 0 ? fuel_u1 / u1_dia : NaN;
+  const galh_u2 = u2_dia > 0 ? fuel_u2 / u2_dia : NaN;
+
   html += seccion(3, "Combustible y Eficiencia");
   html += `<table class="data-table"><thead><tr>
-<th>Combustible</th><th>Consumo [gal]</th></tr></thead><tbody>
-<tr><td class="label">HFO (Fuel Oil Pesado)</td><td class="num">${fmt(hfo)}</td></tr>
-<tr><td class="label">Diésel (DO)</td><td class="num">${fmt(dsl)}</td></tr>
-<tr><td class="label">Total equivalente</td><td class="num hi">${fmt(fuelTot)}</td></tr>
+<th>Combustible / Unidad</th><th>Consumo total [gal]</th><th>Consumo estimado [gal]</th><th>Consumo [gal/h]</th></tr></thead><tbody>
+<tr><td class="label">HFO (Fuel Oil Pesado)</td><td class="num">${fmt(hfo)}</td><td>—</td><td>—</td></tr>
+<tr><td class="label">Diésel (DO)</td><td class="num">${fmt(dsl)}</td><td>—</td><td>—</td></tr>
+<tr class="rpt-row-total"><td class="label">Total planta</td><td class="num hi">${fmt(fuelTot)}</td><td>—</td><td class="num hi">${fmt(horasOperDia > 0 ? fuelTot / horasOperDia : 0, 1)}</td></tr>
+<tr><td class="label">Unidad 1 — est.</td><td>—</td><td class="num">${u1_dia > 0 ? fmt(fuel_u1) : "—"}</td><td class="num">${u1_dia > 0 ? fmt(galh_u1, 1) : "—"}</td></tr>
+<tr><td class="label">Unidad 2 — est.</td><td>—</td><td class="num">${u2_dia > 0 ? fmt(fuel_u2) : "—"}</td><td class="num">${u2_dia > 0 ? fmt(galh_u2, 1) : "—"}</td></tr>
 </tbody></table>
+<p class="rpt-muted" style="font-size:10.5px;margin-bottom:6px">* Consumo por unidad estimado por prorrateo proporcional a energía generada (kWh).</p>
 <div class="rpt-kpi-inline">Rendimiento global: <span class="rpt-kpi-val">${fmt(rendimiento, 2)} kWh/gal</span></div>`;
 
   html += buildFuelExecutiveHTML(wbProd, fechaJS, "daily");
