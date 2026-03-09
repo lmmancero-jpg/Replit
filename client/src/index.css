@@ -337,6 +337,11 @@
   font-weight: 600;
 }
 
+.report-content .data-table td.fuel-ahorro {
+  color: #15803d;
+  font-weight: 600;
+}
+
 /* Filas especiales */
 .report-content .data-table tr.rpt-row-total td {
   background: #e8f0fd;
