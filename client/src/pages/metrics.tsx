@@ -445,7 +445,7 @@ export default function Metrics() {
     setShowPrintContainer(true);
 
     // 2. Esperar a que React renderice + Chart.js pinte todos los canvas
-    await new Promise(r => setTimeout(r, 1800));
+    await new Promise(r => setTimeout(r, 2500));
 
     try {
       const html2pdf = (await import("html2pdf.js")).default;
@@ -453,14 +453,15 @@ export default function Metrics() {
       const opt = {
         margin: [8, 8, 8, 8],
         filename: `Metricas_ElMorro_${period}.pdf`,
-        image: { type: "jpeg", quality: 0.97 },
+        image: { type: "png" },
         html2canvas: {
           scale: 2,
           scrollY: 0,
           useCORS: true,
           logging: false,
           allowTaint: true,
-          width: printRef.current?.offsetWidth,
+          width: 1122,
+          windowWidth: 1122,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
         pagebreak: { mode: ["css", "legacy"], before: ".pdf-page-break" },
@@ -497,7 +498,8 @@ export default function Metrics() {
               top: 0,
               width: "1122px",
               background: "#fff",
-              zIndex: -1,
+              zIndex: 1,
+              pointerEvents: "none",
             }}
           >
             <PdfPrintContent data={data} />

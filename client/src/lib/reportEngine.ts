@@ -1186,13 +1186,11 @@ export function generarInformeFacturacion(
 <tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td class="num"><strong>${fmt(tot_cli)}</strong></td><td class="num"><strong>${fmt(aux)}</strong></td><td class="num hi"><strong>${fmt(tot_gen)}</strong></td></tr>
 </tbody></table>`;
 
-  html += '<div class="rpt-section-break"></div>';
   html += tablaCliente("2.0", "Costos del Mes — Totales", "TOTAL",
     tot_cli, aux, tot_gen, varTotBy, varTotTotal, fijoTotU1, fijoTotU2, fijoTot, totalTot, precioTot);
   html += '<div class="rpt-section-break"></div>';
   html += tablaCliente("2.1", "Costos del Mes — LANEC", "LANEC",
     lan, aux_lan, lan_fact, varLanBy, varLanTotal, fijoLanU1, fijoLanU2, fijoLan, totalLan, precioLan);
-  html += '<div class="rpt-section-break"></div>';
   html += tablaCliente("2.2", "Costos del Mes — GRACA", "GRACA",
     gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, totalGra, precioGra);
 

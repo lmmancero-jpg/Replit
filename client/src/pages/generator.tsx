@@ -136,7 +136,7 @@ export default function Generator() {
         filename: `${currentReportType === "facturacion" ? "Facturacion" : currentReportType === "mensual" ? "Reporte_Mensual" : "Reporte_Diario"}_ElMorro_${date}.pdf`,
         image: { type: "png" },
         html2canvas: {
-          scale: 3,
+          scale: 2,
           scrollY: 0,
           useCORS: true,
           allowTaint: true,
@@ -147,7 +147,6 @@ export default function Generator() {
         pagebreak: {
           mode: ["css", "legacy"],
           before: ".rpt-section-break",
-          avoid: ["table", ".rpt-fuel-box", ".rpt-kpi-row", ".rpt-nota-tecnica", ".rpt-obs"],
         },
       };
 
