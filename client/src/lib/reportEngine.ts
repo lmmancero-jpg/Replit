@@ -808,7 +808,6 @@ export function generarInformeDiario(
 
   html += buildFuelExecutiveHTML(wbProd, fechaJS, "daily");
 
-  html += '<div class="rpt-section-break"></div>';
   html += seccion(4, "Horas de Operación");
   html += `<table class="data-table"><thead><tr>
 <th>Unidad</th><th>Horas del día [h]</th><th>Horas acumuladas [h]</th><th>Restantes para mantenimiento [h]</th>
@@ -1006,7 +1005,6 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
 <p class="rpt-muted" style="font-size:10.5px;margin-bottom:6px">* Consumo por unidad estimado por prorrateo proporcional a energía generada (kWh). U1 = Generador 1, U2 = Generador 2.</p>`;
   html += buildFuelExecutiveHTML(wbProd, fechaCorte, "monthly");
 
-  html += '<div class="rpt-section-break"></div>';
   html += seccion(4, "Horas de Operación");
   html += `<table class="data-table"><thead><tr>
 <th>Unidad</th><th>Horas del mes [h]</th></tr></thead><tbody>
@@ -1193,13 +1191,11 @@ export function generarInformeFacturacion(
 
   html += tablaCliente("2.0", "Costos del Mes — Totales", "TOTAL",
     tot_cli, aux, tot_gen, varTotBy, varTotTotal, fijoTotU1, fijoTotU2, fijoTot, totalTot, precioTot);
-  html += '<div class="rpt-section-break"></div>';
   html += tablaCliente("2.1", "Costos del Mes — LANEC", "LANEC",
     lan, aux_lan, lan_fact, varLanBy, varLanTotal, fijoLanU1, fijoLanU2, fijoLan, totalLan, precioLan);
   html += tablaCliente("2.2", "Costos del Mes — GRACA", "GRACA",
     gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, totalGra, precioGra);
 
-  html += '<div class="rpt-section-break"></div>';
   html += seccion(3, "Costo Fijo por Disponibilidad (Auditable)");
   html += `<table class="data-table">
 <thead><tr>

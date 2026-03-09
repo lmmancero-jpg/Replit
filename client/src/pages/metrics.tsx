@@ -445,18 +445,19 @@ export default function Metrics() {
     setShowPrintContainer(true);
 
     // 2. Esperar a que React renderice + Chart.js pinte todos los canvas
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 3000));
 
     try {
       const html2pdf = (await import("html2pdf.js")).default;
       const period = `${String(data.prod.targetMonth).padStart(2, "0")}_${data.prod.targetYear}`;
       const opt = {
-        margin: [8, 8, 8, 8],
+        margin: [6, 6, 6, 6],
         filename: `Metricas_ElMorro_${period}.pdf`,
         image: { type: "png" },
         html2canvas: {
           scale: 2,
           scrollY: 0,
+          scrollX: 0,
           useCORS: true,
           logging: false,
           allowTaint: true,
@@ -464,7 +465,6 @@ export default function Metrics() {
           windowWidth: 1122,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "landscape" },
-        pagebreak: { mode: ["css", "legacy"], before: ".pdf-page-break" },
       };
 
       if (printRef.current) {
@@ -488,22 +488,40 @@ export default function Metrics() {
     <Layout>
       <div className="min-h-full bg-gray-50/60">
 
-        {/* ── Contenedor de impresión PDF (fuera de pantalla) ─────────── */}
+        {/* ── Contenedor de impresión PDF ──────────────────────────────── */}
         {showPrintContainer && data && (
-          <div
-            ref={printRef}
-            style={{
-              position: "fixed",
-              left: "-9999px",
-              top: 0,
-              width: "1122px",
-              background: "#fff",
-              zIndex: 1,
-              pointerEvents: "none",
-            }}
-          >
-            <PdfPrintContent data={data} />
-          </div>
+          <>
+            {/* Overlay oscuro sobre toda la pantalla */}
+            <div style={{
+              position: "fixed", inset: 0, zIndex: 9999,
+              background: "rgba(10,20,40,0.93)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center", gap: 14,
+            }}>
+              <div style={{ color: "#fff", fontSize: 17, fontWeight: 700, letterSpacing: "0.02em" }}>
+                Generando PDF…
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 13 }}>
+                Renderizando gráficos · Por favor espere
+              </div>
+            </div>
+            {/* Contenedor de captura: visible en pantalla, cubierto por el overlay */}
+            <div
+              ref={printRef}
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "1122px",
+                background: "#fff",
+                zIndex: 9998,
+                pointerEvents: "none",
+                overflow: "hidden",
+              }}
+            >
+              <PdfPrintContent data={data} />
+            </div>
+          </>
         )}
 
         {/* ── Hero ─────────────────────────────────────────────────────── */}

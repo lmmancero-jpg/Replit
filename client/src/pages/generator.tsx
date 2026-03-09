@@ -144,10 +144,6 @@ export default function Generator() {
           windowWidth: 900,
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: {
-          mode: ["css", "legacy"],
-          before: ".rpt-section-break",
-        },
       };
 
       await html2pdf().set(opt).from(element).save();
