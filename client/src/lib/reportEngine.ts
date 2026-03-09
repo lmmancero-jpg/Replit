@@ -104,7 +104,12 @@ function parseFechaRobusta(v: unknown): Date | null {
   if (v === null || v === undefined || v === "") return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
   if (typeof v === "number" && isFinite(v)) {
-    const dt = new Date(Math.round((v - 25569) * 86400 * 1000));
+    // Usar XLSX.SSF.parse_date_code para evitar desfase de zona horaria.
+    // La fórmula (v-25569)*86400*1000 crea un timestamp UTC que JavaScript
+    // convierte a hora local, desplazando el día -1 en zonas UTC-N (p. ej. Ecuador UTC-5).
+    const dc = XLSX.SSF.parse_date_code(v);
+    if (!dc) return null;
+    const dt = new Date(dc.y, dc.m - 1, dc.d, 0, 0, 0, 0);
     return isNaN(dt.getTime()) ? null : dt;
   }
   if (typeof v === "string") {
