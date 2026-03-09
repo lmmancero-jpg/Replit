@@ -365,7 +365,6 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       return `<div class="rpt-fuel-box">
   <div class="rpt-fuel-header">
     <span class="rpt-fuel-title">Análisis Ejecutivo de Combustible</span>
-    <span>${badgeEstado(estado)}</span>
   </div>
   <p class="rpt-fuel-causa">${causa}</p>
   <table class="data-table">
@@ -415,7 +414,6 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     return `<div class="rpt-fuel-box">
   <div class="rpt-fuel-header">
     <span class="rpt-fuel-title">Análisis Ejecutivo de Combustible (Mensual)</span>
-    <span>${badgeEstado(estado)}</span>
   </div>
   <p class="rpt-fuel-causa">${causa}</p>
   <table class="data-table">
