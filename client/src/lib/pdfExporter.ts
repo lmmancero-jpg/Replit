@@ -1,177 +1,181 @@
 /**
  * pdfExporter.ts  —  Morro Energy S.A.
  *
- * Módulo de exportación PDF unificado para informes y métricas.
- *
- * Arquitectura:
- *  1. html2canvas captura el DOM REAL (sin clonar) a escala 3× → nitidez de
- *     impresión. NUNCA se pasa `width` a html2canvas para evitar que clips
- *     trunquen contenido; assemblePages escala cualquier ancho al A4.
- *
- *  2. Algoritmo de saltos de página hacia atrás:
- *     findSafeCut busca el espacio en blanco más cercano buscando SOLO hacia
- *     atrás desde el límite teórico (máx. BACK_RANGE px). Esto garantiza:
- *       (a) cutY ≤ rawEnd → la imagen NUNCA desborda la página.
- *       (b) 300px de margen hacia atrás alcanza el hueco entre filas de
- *           gráficos (≈215px de alto), evitando cortes dentro de un gráfico.
- *
- *  3. Las métricas capturan cada sección [data-pdf-section] de forma
- *     independiente → ningún gráfico queda partido entre secciones.
- *
- *  4. Imágenes exportadas en JPEG 0.92 → excelente nitidez, archivo compacto.
+ * Exportación PDF con pdfmake:
+ *  – Informes: el HTML generado se post-procesa para inyectar estilos inline,
+ *    luego html-to-pdfmake lo convierte a definición de documento pdfmake
+ *    (texto vectorial, tablas nativas, sin html2canvas para los informes).
+ *  – Métricas: html2canvas captura cada sección [data-pdf-section] como
+ *    imagen JPEG que pdfmake maqueta en A4 portrait (1 hoja por sección,
+ *    sin cortes).
  */
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-
-const RENDER_SCALE  = 3;
 const JPEG_QUALITY  = 0.92;
-const REPORT_WIN_W  = 1250;
-const METRICS_WIN_W = 794;   // A4 portrait @96dpi
-/**
- * Distancia máxima hacia atrás para buscar un espacio en blanco antes del
- * límite teórico de página. 300px canvas ≈ 100px DOM @scale-3.
- * Las filas de gráficos de 155px (altura DOM) dan huecos de ≈36-72px canvas;
- * el hueco más alejado del límite teórico es ≈220px canvas → 300px garantiza
- * encontrarlo.
- */
-const BACK_RANGE    = 300;
-/** Muestras horizontales por línea escaneada. */
-const SCAN_SAMPLES  = 150;
-
-// ─── Carga diferida de dependencias ───────────────────────────────────────────
+const RENDER_SCALE  = 3;
+const METRICS_WIN_W = 794;  // A4 portrait @96dpi
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-let _html2canvas: any = null;
-let _jsPDF:       any = null;
+let _h2c: any = null;
+let _pm:  any = null;
+let _h2pm: any = null;
 
-async function loadDeps(): Promise<{ html2canvas: any; jsPDF: any }> {
-  if (!_html2canvas || !_jsPDF) {
-    const [h2c, jspdf] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
+async function loadH2C(): Promise<any> {
+  if (!_h2c) _h2c = (await import("html2canvas")).default;
+  return _h2c;
+}
+
+async function loadPdfMake(): Promise<any> {
+  if (!_pm) {
+    const [pmMod, fontsMod] = await Promise.all([
+      import("pdfmake/build/pdfmake"),
+      import("pdfmake/build/vfs_fonts"),
     ]);
-    _html2canvas = h2c.default;
-    _jsPDF       = jspdf.jsPDF;
+    _pm = (pmMod as any).default ?? pmMod;
+    const fonts = (fontsMod as any).default ?? fontsMod;
+    _pm.addVirtualFileSystem(fonts);
   }
-  return { html2canvas: _html2canvas, jsPDF: _jsPDF };
+  return _pm;
 }
 
-// ─── Captura de elemento ───────────────────────────────────────────────────────
-
-/**
- * Captura un elemento del DOM real a escala RENDER_SCALE.
- * NO se pasa `width` para no truncar el contenido — el escalado al A4
- * lo realiza assemblePages mediante la relación pxPerMm.
- */
-async function captureElement(
-  el:       HTMLElement,
-  h2c:      any,
-  windowW?: number,
-): Promise<HTMLCanvasElement> {
-  const opts: Record<string, unknown> = {
-    scale:           RENDER_SCALE,
-    useCORS:         true,
-    allowTaint:      false,
-    logging:         false,
-    backgroundColor: "#ffffff",
-  };
-  if (windowW !== undefined) opts.windowWidth = windowW;
-  return h2c(el, opts) as Promise<HTMLCanvasElement>;
+async function loadHtmlToPdfmake(): Promise<any> {
+  if (!_h2pm) {
+    const mod = await import("html-to-pdfmake");
+    _h2pm = (mod as any).default ?? mod;
+  }
+  return _h2pm;
 }
 
-// ─── Algoritmo de corte seguro (solo hacia atrás) ─────────────────────────────
+// ─── Inyección de estilos inline ──────────────────────────────────────────────
 
 /**
- * Busca hacia atrás desde `targetY` (límite teórico de página) la línea
- * horizontal de mayor luminosidad media (= espacio en blanco entre filas).
+ * Post-procesa el HTML del informe:
+ * – Elimina <style> embebidos (innecesarios en pdfmake).
+ * – Aplica estilos inline en todos los elementos clave para que
+ *   html-to-pdfmake los procese sin depender de CSS externo.
  *
- * Restricción crítica: maxY = targetY  →  cutY ≤ rawEnd  →  la franja de
- * imagen NUNCA excede la altura de la página PDF.
- *
- * Con BACK_RANGE = 300px canvas (@scale-3 = 100px DOM), el algoritmo alcanza
- * el hueco entre filas de gráficos de 155px de altura DOM.
+ * Estrategia de prioridad:
+ *  • td base: estilos PREPEND (menor prioridad, último en la cadena pierde).
+ *  • clases especiales (label, hi, warn, row-total…): APPEND → ganan.
  */
-function findSafeCut(canvas: HTMLCanvasElement, targetY: number): number {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return targetY;
+function injectInlineStyles(html: string): string {
+  const parser = new DOMParser();
+  const doc    = parser.parseFromString(`<div id="__r">${html}</div>`, "text/html");
+  const root   = doc.getElementById("__r")!;
 
-  const w    = canvas.width;
-  const minY = Math.max(1,               targetY - BACK_RANGE);
-  const maxY = Math.min(canvas.height - 2, targetY);          // ← solo atrás
-  const step = Math.max(1, Math.floor(w / SCAN_SAMPLES));
+  function set(el: Element, styles: string): void {
+    (el as HTMLElement).setAttribute("style", styles);
+  }
+  function add(el: Element, styles: string): void {
+    const prev = (el as HTMLElement).getAttribute("style") || "";
+    (el as HTMLElement).setAttribute("style", prev ? `${prev};${styles}` : styles);
+  }
 
-  let bestY     = targetY;
-  let bestScore = -Infinity;
+  // Eliminar <style> embebidos
+  root.querySelectorAll("style").forEach(s => s.remove());
 
-  for (let y = minY; y <= maxY; y++) {
-    const row = ctx.getImageData(0, y, w, 1).data;
-    let lum = 0;
-    let n   = 0;
-    for (let x = 0; x < w; x += step) {
-      const i = x * 4;
-      lum += row[i] * 0.2126 + row[i + 1] * 0.7152 + row[i + 2] * 0.0722;
-      n++;
+  // ── Header principal ──────────────────────────────────────────────────────
+  root.querySelectorAll(".rpt-header").forEach(el =>
+    set(el, "background-color:#1e3a6e;color:#ffffff;padding:14px 20px;display:block;margin-bottom:14px"));
+  root.querySelectorAll(".rpt-logo-circle").forEach(el => el.remove());
+  root.querySelectorAll(".rpt-header-stripe").forEach(el => el.remove());
+  root.querySelectorAll(".rpt-header-body,.rpt-header-left").forEach(el =>
+    set(el, "display:block"));
+  root.querySelectorAll(".rpt-header-right").forEach(el =>
+    set(el, "display:block;margin-top:6px;text-align:right"));
+  root.querySelectorAll(".rpt-empresa").forEach(el =>
+    set(el, "font-size:13px;font-weight:bold;color:#ffffff;display:block"));
+  root.querySelectorAll(".rpt-tipo").forEach(el =>
+    set(el, "font-size:10px;color:#b0c4e8;display:block;margin-top:2px"));
+  root.querySelectorAll(".rpt-subtitulo-label").forEach(el =>
+    set(el, "font-size:9px;color:#b0c4e8;display:block"));
+  root.querySelectorAll(".rpt-subtitulo").forEach(el =>
+    set(el, "font-size:14px;font-weight:bold;color:#ffffff;display:block"));
+
+  // ── Títulos de sección ────────────────────────────────────────────────────
+  root.querySelectorAll(".rpt-section-title").forEach(el =>
+    set(el, "font-size:12px;font-weight:bold;color:#1e3a6e;display:block;margin-top:14px;margin-bottom:6px;padding:4px 0;border-bottom:1px solid #c5d9f1"));
+  root.querySelectorAll(".rpt-section-num").forEach(el =>
+    set(el, "background-color:#1e3a6e;color:#ffffff;font-weight:bold;padding:2px 6px;margin-right:6px;font-size:10px"));
+
+  // ── Tablas de datos ───────────────────────────────────────────────────────
+  root.querySelectorAll(".data-table th").forEach(el =>
+    set(el, "background-color:#dbe9f8;color:#1f3a5f;font-weight:bold;padding:5px 7px;border:1px solid #c5d9f1;font-size:10px;text-align:left"));
+
+  // td base — PREPEND para que clases especiales puedan sobreescribir
+  root.querySelectorAll(".data-table td").forEach(el => {
+    const e = el as HTMLElement;
+    const existing = e.getAttribute("style") || "";
+    e.setAttribute("style",
+      `border:1px solid #e5ecf8;padding:4px 7px;text-align:right;color:#1f2d3d;font-size:10px${existing ? ";" + existing : ""}`);
+  });
+
+  // Clases especiales de celda — APPEND para ganar
+  root.querySelectorAll(".data-table td.label").forEach(el =>
+    add(el, "text-align:left;font-weight:500"));
+  root.querySelectorAll(".data-table td.num").forEach(el =>
+    add(el, "text-align:right"));
+  root.querySelectorAll(".data-table td.hi").forEach(el =>
+    add(el, "background-color:#fff8e1;color:#7c5500"));
+  root.querySelectorAll(".data-table td.warn").forEach(el =>
+    add(el, "background-color:#fff0f0;color:#c00000"));
+  root.querySelectorAll(".data-table td.fuel-ahorro").forEach(el =>
+    add(el, "color:#15803d;font-weight:bold"));
+
+  root.querySelectorAll(".data-table tr.rpt-row-total td").forEach(el =>
+    add(el, "background-color:#e8f0fb;font-weight:bold"));
+  root.querySelectorAll(".data-table tr.rpt-row-grupo td").forEach(el =>
+    add(el, "background-color:#f0f5fe;font-weight:bold;color:#3b5b8c"));
+  root.querySelectorAll(".data-table tr.rpt-row-grand td").forEach(el =>
+    add(el, "background-color:#dbe9f8;font-weight:bold;color:#1f3a5f"));
+
+  // Filas alternas (simulación de :nth-child)
+  root.querySelectorAll(".data-table tbody tr").forEach((row, i) => {
+    if (i % 2 === 1) {
+      const special = (row as HTMLElement).classList.contains("rpt-row-total")
+        || (row as HTMLElement).classList.contains("rpt-row-grupo")
+        || (row as HTMLElement).classList.contains("rpt-row-grand");
+      if (!special) {
+        (row as HTMLElement).querySelectorAll("td").forEach(td => {
+          const s = td.getAttribute("style") || "";
+          if (!s.includes("background-color")) add(td, "background-color:#f7fbff");
+        });
+      }
     }
-    lum /= n;
-    // Penalizar distancia: favorecer cortes cerca del límite teórico
-    // pero sólo hacia atrás (mayor Y = más cercano al límite = menor penalización)
-    const score = lum - (targetY - y) * 0.6;
-    if (score > bestScore) { bestScore = score; bestY = y; }
-  }
-  return bestY;
-}
+  });
 
-// ─── Ensamblado de páginas en jsPDF ───────────────────────────────────────────
+  // ── KPI table ─────────────────────────────────────────────────────────────
+  root.querySelectorAll(".rpt-kpi-row td").forEach(el =>
+    set(el, "background-color:#f0f5ff;border:1px solid #c5d9f1;padding:8px 10px;text-align:center;vertical-align:top"));
+  root.querySelectorAll(".rpt-kpi-label").forEach(el =>
+    set(el, "font-size:9px;color:#64748b;display:block;margin-bottom:3px"));
+  root.querySelectorAll(".rpt-kpi-big").forEach(el =>
+    set(el, "font-size:16px;font-weight:bold;color:#1e3a6e;display:block;line-height:1.2"));
+  root.querySelectorAll(".rpt-kpi-unit").forEach(el =>
+    set(el, "font-size:9px;color:#64748b"));
+  root.querySelectorAll(".rpt-kpi-sub").forEach(el =>
+    set(el, "font-size:9px;color:#94a3b8;display:block;margin-top:2px"));
+  root.querySelectorAll(".rpt-kpi-inline").forEach(el =>
+    set(el, "font-size:10px;color:#334155;margin:4px 0;display:block"));
+  root.querySelectorAll(".rpt-kpi-val").forEach(el =>
+    set(el, "font-weight:bold;color:#1e3a6e"));
 
-/**
- * Divide el canvas en franjas verticales y las distribuye en páginas PDF.
- * Cada corte se localiza en espacio en blanco mediante findSafeCut.
- * isFirstPage se pasa por referencia para encadenar secciones.
- */
-function assemblePages(
-  pdf:         any,
-  canvas:      HTMLCanvasElement,
-  contentMmW:  number,
-  contentMmH:  number,
-  marginMm:    number,
-  isFirstPage: { value: boolean },
-): void {
-  const pxPerMm = canvas.width / contentMmW;
-  const pageHPx = Math.round(contentMmH * pxPerMm);
-  const totalH  = canvas.height;
-  let   yPx     = 0;
+  // ── Cajas de combustible, avisos y pie ────────────────────────────────────
+  root.querySelectorAll(".rpt-fuel-box").forEach(el =>
+    set(el, "border:1px solid #dbe9f8;padding:10px 12px;margin:8px 0;background-color:#f8fbff;display:block"));
+  root.querySelectorAll(".rpt-fuel-header").forEach(el =>
+    set(el, "margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #c5d9f1;display:block"));
+  root.querySelectorAll(".rpt-fuel-title").forEach(el =>
+    set(el, "font-size:11px;font-weight:bold;color:#1e3a6e;display:block"));
+  root.querySelectorAll(".rpt-fuel-causa").forEach(el =>
+    set(el, "font-size:10px;color:#475569;margin:4px 0;display:block"));
+  root.querySelectorAll(".rpt-notice").forEach(el =>
+    set(el, "background-color:#fff8e1;border:1px solid #f59e0b;padding:8px;font-size:10px;margin:6px 0;display:block"));
+  root.querySelectorAll(".rpt-muted").forEach(el =>
+    set(el, "color:#64748b;font-size:9px;display:block;margin-top:3px"));
+  root.querySelectorAll(".rpt-footer").forEach(el =>
+    set(el, "border-top:1px solid #e5ecf8;padding-top:6px;margin-top:10px;font-size:9px;color:#94a3b8;text-align:center;display:block"));
 
-  while (yPx < totalH) {
-    if (!isFirstPage.value) pdf.addPage();
-    isFirstPage.value = false;
-
-    const rawEnd = yPx + pageHPx;
-    // findSafeCut devuelve ≤ rawEnd → sliceH ≤ pageHPx → sliceMmH ≤ contentMmH
-    const cutY   = rawEnd < totalH ? findSafeCut(canvas, rawEnd) : totalH;
-    const sliceH   = Math.max(1, cutY - yPx);
-    const sliceMmH = sliceH / pxPerMm;
-
-    const slice   = document.createElement("canvas");
-    slice.width   = canvas.width;
-    slice.height  = Math.ceil(sliceH);
-    const ctx     = slice.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, slice.width, slice.height);
-    ctx.drawImage(
-      canvas,
-      0, yPx, canvas.width, Math.ceil(sliceH),
-      0, 0,   canvas.width, Math.ceil(sliceH),
-    );
-
-    pdf.addImage(
-      slice.toDataURL("image/jpeg", JPEG_QUALITY),
-      "JPEG",
-      marginMm, marginMm,
-      contentMmW, sliceMmH,
-    );
-
-    yPx = cutY;
-  }
+  return root.innerHTML;
 }
 
 // ─── API PÚBLICA ───────────────────────────────────────────────────────────────
@@ -179,97 +183,89 @@ function assemblePages(
 /**
  * Exporta un informe (diario / mensual / facturación) a PDF A4 portrait.
  *
- * Captura el elemento .report-wrapper a su ancho natural en el DOM (sin
- * clip de width). assemblePages lo escala a los 194mm de ancho útil del A4.
+ * Usa pdfmake (texto vectorial) vía html-to-pdfmake. El HTML generado se
+ * post-procesa con injectInlineStyles para que html-to-pdfmake aplique
+ * colores, bordes y tipografía correctamente sin CSS externo.
  */
 export async function exportReportPDF(
   element:  HTMLElement,
   filename: string,
 ): Promise<void> {
-  const { html2canvas, jsPDF } = await loadDeps();
+  const [pm, htmlToPdfmake] = await Promise.all([
+    loadPdfMake(),
+    loadHtmlToPdfmake(),
+  ]);
 
-  const marginMm   = 8;
-  const contentMmW = 210 - marginMm * 2;   // 194 mm
-  const contentMmH = 297 - marginMm * 2;   // 281 mm
+  const styledHtml = injectInlineStyles(element.innerHTML);
+  const content    = htmlToPdfmake(styledHtml, { window });
 
-  const canvas = await captureElement(element, html2canvas, REPORT_WIN_W);
+  const docDef: any = {
+    pageSize:        "A4",
+    pageOrientation: "portrait",
+    pageMargins:     [22, 22, 22, 22],  // ≈ 8 mm
+    content,
+    defaultStyle: {
+      font:       "Roboto",
+      fontSize:   10,
+      lineHeight: 1.3,
+      color:      "#1f2d3d",
+    },
+    styles: {
+      "html-p":      { margin: [0, 2, 0, 2] },
+      "html-strong": { bold: true },
+      "html-em":     { italics: true },
+    },
+  };
 
-  const pdf         = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  const isFirstPage = { value: true };
-
-  assemblePages(pdf, canvas, contentMmW, contentMmH, marginMm, isFirstPage);
-  pdf.save(filename);
+  pm.createPdf(docDef).download(filename);
 }
 
 /**
- * Coloca un canvas en UNA sola página A4, escalando si es necesario.
+ * Exporta las métricas a PDF A4 portrait con pdfmake.
  *
- * Garantiza que el contenido nunca sea cortado por salto de página:
- *  – Si el canvas cabe con ancho completo → se coloca tal cual.
- *  – Si la altura resultante excede el área útil → se escala uniformemente
- *    para ajustarse a la altura disponible (centered horizontally).
- */
-function placeOnePage(
-  pdf:         any,
-  canvas:      HTMLCanvasElement,
-  contentMmW:  number,
-  contentMmH:  number,
-  marginMm:    number,
-  isFirstPage: { value: boolean },
-): void {
-  if (!isFirstPage.value) pdf.addPage();
-  isFirstPage.value = false;
-
-  const aspectRatio = canvas.height / canvas.width;
-
-  let drawW = contentMmW;
-  let drawH = drawW * aspectRatio;
-
-  if (drawH > contentMmH) {
-    // La sección es más alta que la página → escalar para que quepa en altura
-    drawH = contentMmH;
-    drawW = drawH / aspectRatio;
-  }
-
-  // Centrar horizontalmente si se escaló para ajuste de altura
-  const xOffset = marginMm + (contentMmW - drawW) / 2;
-
-  pdf.addImage(
-    canvas.toDataURL("image/jpeg", JPEG_QUALITY),
-    "JPEG",
-    xOffset, marginMm,
-    drawW, drawH,
-  );
-}
-
-/**
- * Exporta las métricas a PDF A4 portrait.
- *
- * Cada sección [data-pdf-section] ocupa exactamente UNA hoja, sin cortes
- * por salto de página. Si una sección supera la altura útil del A4 se
- * escala proporcionalmente para que quede completa en una sola hoja.
+ * Cada sección [data-pdf-section] se captura como imagen JPEG con
+ * html2canvas y se coloca en UNA sola hoja A4 portrait sin cortes.
+ * Si la imagen supera el área útil, fit la escala proporcionalmente.
  */
 export async function exportMetricsPDF(
   container: HTMLElement,
   period:    string,
 ): Promise<void> {
-  const { html2canvas, jsPDF } = await loadDeps();
-
-  const marginMm   = 8;
-  const contentMmW = 210 - marginMm * 2;   // 194 mm
-  const contentMmH = 297 - marginMm * 2;   // 281 mm
+  const [pm, h2c] = await Promise.all([loadPdfMake(), loadH2C()]);
 
   const sections = Array.from(
     container.querySelectorAll<HTMLElement>("[data-pdf-section]"),
   );
 
-  const pdf         = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  const isFirstPage = { value: true };
-
-  for (const section of sections) {
-    const canvas = await captureElement(section, html2canvas, METRICS_WIN_W);
-    placeOnePage(pdf, canvas, contentMmW, contentMmH, marginMm, isFirstPage);
+  // Captura secuencial (html2canvas es más fiable sin concurrencia)
+  const images: string[] = [];
+  for (const sec of sections) {
+    const canvas = await h2c(sec, {
+      scale:           RENDER_SCALE,
+      useCORS:         true,
+      allowTaint:      false,
+      logging:         false,
+      backgroundColor: "#ffffff",
+      windowWidth:     METRICS_WIN_W,
+    }) as HTMLCanvasElement;
+    images.push(canvas.toDataURL("image/jpeg", JPEG_QUALITY));
   }
 
-  pdf.save(`Metricas_ElMorro_${period}.pdf`);
+  // A4 portrait útil: 194mm × 281mm ≈ 549pt × 795pt
+  const contentW = 549;
+  const contentH = 795;
+
+  const content: any[] = images.map((img, i) => ({
+    image:     img,
+    fit:       [contentW, contentH],
+    alignment: "center",
+    ...(i > 0 ? { pageBreak: "before" } : {}),
+  }));
+
+  pm.createPdf({
+    pageSize:        "A4",
+    pageOrientation: "portrait",
+    pageMargins:     [22, 22, 22, 22],
+    content,
+  }).download(`Metricas_ElMorro_${period}.pdf`);
 }

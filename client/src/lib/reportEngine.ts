@@ -972,11 +972,11 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
 <tr><td class="label">Auxiliares</td><td class="num">${fmt(aux)}</td><td>${horasOperMes > 0 ? fmt(pmed_aux, 1) : "—"}</td></tr>
 </tbody></table>`;
 
-  html += `<div class="rpt-kpi-row">
-  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs instalada)</div><div class="rpt-kpi-big">${(fp_inst * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${P_INST_TOTAL} kW instalados</div></div>
-  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs efectiva)</div><div class="rpt-kpi-big">${(fp_eff * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${Math.round(P_INST_EFECTIVA)} kW efectivos</div></div>
-  <div class="rpt-kpi-card"><div class="rpt-kpi-label">Rendimiento promedio</div><div class="rpt-kpi-big">${fmt(rendimiento, 2)}<span class="rpt-kpi-unit">kWh/gal</span></div><div class="rpt-kpi-sub">Energía por galón consumido</div></div>
-</div>`;
+  html += `<table class="rpt-kpi-row" style="display:table;width:100%;border-collapse:separate;border-spacing:8px"><tr>
+  <td class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs instalada)</div><div class="rpt-kpi-big">${(fp_inst * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${P_INST_TOTAL} kW instalados</div></td>
+  <td class="rpt-kpi-card"><div class="rpt-kpi-label">Factor de planta (vs efectiva)</div><div class="rpt-kpi-big">${(fp_eff * 100).toFixed(1)}<span class="rpt-kpi-unit">%</span></div><div class="rpt-kpi-sub">${Math.round(P_INST_EFECTIVA)} kW efectivos</div></td>
+  <td class="rpt-kpi-card"><div class="rpt-kpi-label">Rendimiento promedio</div><div class="rpt-kpi-big">${fmt(rendimiento, 2)}<span class="rpt-kpi-unit">kWh/gal</span></div><div class="rpt-kpi-sub">Energía por galón consumido</div></td>
+</tr></table>`;
 
   html += `<table class="data-table"><thead><tr>
 <th>Unidad generadora</th><th>Energía [kWh]</th><th>Potencia media [kW]</th><th>Participación [%]</th>

@@ -227,14 +227,14 @@ export function extractAforo(wb: XLSX.WorkBook, targetMonth: number, targetYear:
     const vol = toNumber(r?.[5]);
     if (!vol) continue;
 
-    function idxForLabel(): number {
+    const idxForLabel = (): number => {
       let idx = labels.indexOf(label);
       if (idx === -1) {
         labels.push(label); t601.push(null); t602.push(null); t610.push(null); t611.push(null); cisterna2.push(null);
         idx = labels.length - 1;
       }
       return idx;
-    }
+    };
 
     if      (rawTag.startsWith("T601"))    { const ix = idxForLabel(); t601[ix] = vol; }
     else if (rawTag.startsWith("T602"))    { const ix = idxForLabel(); t602[ix] = vol; }
@@ -247,28 +247,31 @@ export function extractAforo(wb: XLSX.WorkBook, targetMonth: number, targetYear:
 }
 
 export function buildResumen(prod: ProdData): Resumen {
-  const sum = (arr: (number | null)[]) => arr.reduce((a, b) => a + (b || 0), 0);
-  const avgNoZero = (arr: (number | null)[]) => {
+  const sum = (arr: (number | null)[]): number =>
+    arr.reduce<number>((a, b) => a + (b ?? 0), 0);
+  const avgNoZero = (arr: (number | null)[]): number | null => {
     const f = arr.filter((v) => v != null && v !== 0) as number[];
-    return f.length ? f.reduce((a, b) => a + b, 0) / f.length : null;
+    return f.length ? f.reduce<number>((a, b) => a + b, 0) / f.length : null;
   };
-  const sumU1 = sum(prod.e_u1), sumU2 = sum(prod.e_u2);
-  const sumHU1 = sum(prod.h_u1), sumHU2 = sum(prod.h_u2);
+  const sumU1  = sum(prod.e_u1);
+  const sumU2  = sum(prod.e_u2);
+  const sumHU1 = sum(prod.h_u1);
+  const sumHU2 = sum(prod.h_u2);
   return {
-    energiaTotalMWh: sum(prod.etotal) / 1000,
-    energiaU1MWh: sumU1 / 1000,
-    energiaU2MWh: sumU2 / 1000,
-    energiaLanecMWh: sum(prod.lanec) / 1000,
-    energiaGracaMWh: sum(prod.graca) / 1000,
-    energiaAuxMWh: sum(prod.aux) / 1000,
-    horasU1: sumHU1,
-    horasU2: sumHU2,
-    potPromU1: sumU1 > 0 && sumHU1 > 0 ? sumU1 / sumHU1 : null,
-    potPromU2: sumU2 > 0 && sumHU2 > 0 ? sumU2 / sumHU2 : null,
-    eficProm: avgNoZero(prod.rend),
-    hfoGal: sum(prod.hfoTot.map(v => v)),
-    doGal: sum(prod.doTot.map(v => v)),
-    dias: prod.labels.length,
+    energiaTotalMWh:  sum(prod.etotal) / 1000,
+    energiaU1MWh:     sumU1 / 1000,
+    energiaU2MWh:     sumU2 / 1000,
+    energiaLanecMWh:  sum(prod.lanec) / 1000,
+    energiaGracaMWh:  sum(prod.graca) / 1000,
+    energiaAuxMWh:    sum(prod.aux)   / 1000,
+    horasU1:          sumHU1,
+    horasU2:          sumHU2,
+    potPromU1:        sumU1 > 0 && sumHU1 > 0 ? sumU1 / sumHU1 : null,
+    potPromU2:        sumU2 > 0 && sumHU2 > 0 ? sumU2 / sumHU2 : null,
+    eficProm:         avgNoZero(prod.rend),
+    hfoGal:           sum(prod.hfoTot),
+    doGal:            sum(prod.doTot),
+    dias:             prod.labels.length,
   };
 }
 

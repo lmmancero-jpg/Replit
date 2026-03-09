@@ -87,7 +87,12 @@ A single source of truth for all API routes, input schemas (Zod), and response s
 
 ### PDF Export
 
-Reports in the history page can be exported to PDF using `html2pdf.js`, which renders the saved HTML content client-side.
+PDF export uses **pdfmake 0.2.20** (vector text, no rasterization) combined with **html-to-pdfmake** for report pages, and **html2canvas** for the metrics charts page:
+
+- **Reports** (daily / monthly / billing): `exportReportPDF()` in `client/src/lib/pdfExporter.ts` post-processes the report HTML with `injectInlineStyles()` to embed all colors, borders, and typography as inline `style=""` attributes (so html-to-pdfmake renders correctly without external CSS), then calls pdfmake to produce an A4 portrait PDF download.
+- **Metrics**: `exportMetricsPDF()` captures each `[data-pdf-section]` as a JPEG image via html2canvas at 3× scale, then embeds each image in a pdfmake document (one A4 portrait page per section).
+- Fonts registered via `pdfMake.addVirtualFileSystem(vfsFonts)` using the bundled Roboto VFS from `pdfmake/build/vfs_fonts`.
+- Custom type declarations for pdfmake and html-to-pdfmake are in `client/src/vendor.d.ts`.
 
 ---
 
@@ -99,7 +104,9 @@ Reports in the history page can be exported to PDF using `html2pdf.js`, which re
 | **Drizzle ORM** (`drizzle-orm`, `drizzle-kit`, `drizzle-zod`) | Database access, schema management, and Zod schema generation |
 | **`pg` (node-postgres)** | PostgreSQL driver for Node.js |
 | **`xlsx` (SheetJS)** | Parsing `.xlsx` Excel files uploaded by the user for production and aforo data |
-| **`html2pdf.js`** | Client-side PDF generation from HTML report strings |
+| **`pdfmake` 0.2.20** | Vector-text PDF generation for reports and metrics |
+| **`html-to-pdfmake`** | Converts styled HTML into pdfmake content nodes |
+| **`html2canvas`** | Rasterizes chart sections for metrics PDF export |
 | **`date-fns`** | Date formatting and manipulation throughout the app |
 | **TanStack Query v5** | Server state management and caching on the frontend |
 | **React Hook Form + Zod** | Form state and validation |
