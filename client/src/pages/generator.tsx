@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { FileDown, Printer, Save, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
+import { FileDown, Save, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
 import { useFileStore } from "@/lib/fileStore";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import {
   generarInformeMensual,
   generarInformeFacturacion,
 } from "@/lib/reportEngine";
-import { exportReportPDF } from "@/lib/pdfExporter";
 
 const generatorSchema = z.object({
   reportDate: z.string().min(1, "La fecha es requerida"),
@@ -123,38 +122,34 @@ export default function Generator() {
   };
 
   const handleExportPDF = async () => {
-    if (!previewRef.current || !generatedHtml) return;
+    if (!generatedHtml) return;
     const data = form.getValues();
     const date = currentReportType === "diario" ? data.reportDate : data.reportMonth;
     const typeLabel =
       currentReportType === "facturacion" ? "Facturacion"
       : currentReportType === "mensual"   ? "Reporte_Mensual"
       : "Reporte_Diario";
+    const filename = `${typeLabel}_ElMorro_${date}.pdf`;
 
     try {
-      const element = previewRef.current.querySelector<HTMLElement>(".report-wrapper");
-      if (!element) return;
-      await exportReportPDF(element, `${typeLabel}_ElMorro_${date}.pdf`);
+      const res = await fetch("/api/export/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: generatedHtml, title: filename }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
       toast({ title: "PDF generado", description: "El archivo se está descargando." });
     } catch (err) {
       console.error("PDF export error:", err);
       toast({ title: "Error al generar PDF", description: "Intenta de nuevo.", variant: "destructive" });
     }
-  };
-
-  const handlePrintView = () => {
-    if (!generatedHtml) return;
-    const data = form.getValues();
-    const date = currentReportType === "diario" ? data.reportDate : data.reportMonth;
-    const typeLabel =
-      currentReportType === "facturacion" ? "Facturación"
-      : currentReportType === "mensual"   ? "Informe Mensual"
-      : "Informe Diario";
-    const title = `${typeLabel} – ${date} – Central El Morro`;
-    const key = `print_${Date.now()}`;
-    sessionStorage.setItem(key, generatedHtml);
-    const url = `/print-view?key=${encodeURIComponent(key)}&title=${encodeURIComponent(title)}`;
-    window.open(url, "_blank");
   };
 
   return (
@@ -351,17 +346,6 @@ export default function Generator() {
               Previsualización del informe
             </h3>
             <div className="flex items-center gap-2">
-              <Button
-                data-testid="button-print-view"
-                variant="outline"
-                size="sm"
-                onClick={handlePrintView}
-                disabled={!generatedHtml}
-                title="Abrir vista de impresión en nueva pestaña"
-              >
-                <Printer className="w-3.5 h-3.5 mr-1" />
-                Imprimir
-              </Button>
               <Button
                 data-testid="button-export-pdf"
                 variant="outline"

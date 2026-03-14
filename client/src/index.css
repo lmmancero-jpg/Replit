@@ -166,7 +166,7 @@
 
 .report-content {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
   color: #1b2134;
 }
@@ -210,14 +210,14 @@
 }
 
 .report-content .rpt-empresa {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 .report-content .rpt-tipo {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
   opacity: 0.85;
   text-transform: uppercase;
@@ -230,7 +230,7 @@
 }
 
 .report-content .rpt-subtitulo-label {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.7;
@@ -238,7 +238,7 @@
 }
 
 .report-content .rpt-subtitulo {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
 }
 
@@ -254,7 +254,7 @@
   align-items: center;
   gap: 9px;
   margin: 20px 0 8px;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
@@ -272,7 +272,7 @@
   height: 22px;
   background: #1260a8;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   border-radius: 4px;
   flex-shrink: 0;
@@ -286,7 +286,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: 4px 0 12px;
-  font-size: 15px;
+  font-size: 14px;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(27,59,111,0.07);
@@ -301,7 +301,7 @@
   padding: 9px 14px;
   text-align: left;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   color: #1b3b6f;
   white-space: nowrap;
   vertical-align: middle;
@@ -312,7 +312,7 @@
   padding: 7px 14px;
   text-align: right;
   color: #1f2d3d;
-  font-size: 15px;
+  font-size: 14px;
   vertical-align: middle;
 }
 
@@ -360,7 +360,7 @@
 
 .report-content .data-table tr.rpt-row-grupo td {
   background: #f0f4fb;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #1260a8;
   text-transform: uppercase;
@@ -370,7 +370,7 @@
 
 .report-content .data-table tr.rpt-row-grand td {
   background: linear-gradient(90deg, #dce8fa, #e8f4fd);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #1b3b6f;
   border-top: 2px solid #1260a8;
@@ -395,7 +395,7 @@
 }
 
 .report-content .rpt-kpi-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -404,27 +404,27 @@
 }
 
 .report-content .rpt-kpi-big {
-  font-size: 28px;
+  font-size: 27px;
   font-weight: 700;
   color: #1b3b6f;
   line-height: 1.1;
 }
 
 .report-content .rpt-kpi-unit {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: #4b6a9b;
   margin-left: 3px;
 }
 
 .report-content .rpt-kpi-sub {
-  font-size: 12px;
+  font-size: 11px;
   color: #6b82a8;
   margin-top: 3px;
 }
 
 .report-content .rpt-kpi-inline {
-  font-size: 15px;
+  font-size: 14px;
   color: #374151;
   margin: 4px 0 10px;
 }
@@ -432,7 +432,7 @@
 .report-content .rpt-kpi-val {
   font-weight: 700;
   color: #1b3b6f;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 /* ── CAJA COMBUSTIBLE EJECUTIVA ─────────── */
@@ -456,7 +456,7 @@
 }
 
 .report-content .rpt-fuel-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
@@ -464,7 +464,7 @@
 }
 
 .report-content .rpt-fuel-causa {
-  font-size: 14px;
+  font-size: 13px;
   color: #4b5563;
   margin: 0 0 8px;
   font-style: italic;

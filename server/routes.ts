@@ -4,13 +4,32 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import { execSync } from "child_process";
+
+function findChromiumExecutable(): string {
+  try {
+    return execSync("which chromium", { timeout: 5000 }).toString().trim();
+  } catch {
+    const candidates = [
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+      "/usr/bin/google-chrome",
+    ];
+    for (const p of candidates) {
+      try {
+        execSync(`test -x ${p}`, { timeout: 2000 });
+        return p;
+      } catch { /* skip */ }
+    }
+    throw new Error("Chromium not found. Install chromium via system dependencies.");
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
   app.get(api.reports.list.path, async (req, res) => {
     try {
       const allReports = await storage.getReports();
@@ -46,13 +65,13 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         return res.status(400).json({
           message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
+          field: err.errors[0].path.join("."),
         });
       }
       res.status(500).json({ message: "Internal server error" });
     }
   });
-  
+
   app.delete(api.reports.delete.path, async (req, res) => {
     try {
       const id = Number(req.params.id);
@@ -71,27 +90,47 @@ export async function registerRoutes(
   });
 
   app.post("/api/export/pdf", async (req, res) => {
-    const { html, filename } = req.body as { html?: string; filename?: string };
+    const { html, title } = req.body as { html?: string; title?: string };
     if (!html || typeof html !== "string") {
       return res.status(400).json({ error: "Missing html content" });
     }
+
     let browser;
     try {
+      const executablePath = findChromiumExecutable();
       browser = await puppeteer.launch({
-        args: chromium.args,
-        executablePath: await chromium.executablePath(),
+        executablePath,
         headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--no-first-run",
+          "--no-zygote",
+          "--single-process",
+          "--disable-extensions",
+        ],
       });
+
       const page = await browser.newPage();
+      await page.setViewport({ width: 1123, height: 794 });
       await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "15mm", bottom: "15mm", left: "15mm", right: "15mm" },
+        margin: { top: "14mm", bottom: "14mm", left: "16mm", right: "16mm" },
       });
-      const safeFilename = (filename || "reporte.pdf").replace(/[^a-zA-Z0-9_.\-]/g, "_");
+
+      const safeFilename = (title || "reporte.pdf")
+        .replace(/[^a-zA-Z0-9_.\- ]/g, "_")
+        .trim();
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${safeFilename}"`
+      );
       res.end(pdfBuffer);
     } catch (err) {
       console.error("Puppeteer PDF error:", err);
