@@ -210,19 +210,19 @@
 }
 
 .report-content .rpt-empresa {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.2;
 }
 
 .report-content .rpt-tipo {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 400;
   opacity: 0.85;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .report-content .rpt-header-right {
@@ -230,7 +230,7 @@
 }
 
 .report-content .rpt-subtitulo-label {
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.7;
@@ -238,7 +238,7 @@
 }
 
 .report-content .rpt-subtitulo {
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 600;
 }
 
@@ -252,32 +252,32 @@
 .report-content .rpt-section-title {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 13px 0 5px;
-  font-size: 9.5px;
+  gap: 9px;
+  margin: 20px 0 8px;
+  font-size: 18px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-left: 3px solid #1260a8;
-  padding: 3px 0 3px 8px;
-  line-height: 1;
+  letter-spacing: 0.04em;
+  border-left: 4px solid #1260a8;
+  padding: 5px 0 5px 12px;
+  line-height: 1.2;
 }
 
 .report-content .rpt-section-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
+  min-width: 22px;
+  height: 22px;
   background: #1260a8;
   color: #fff;
-  font-size: 8.5px;
+  font-size: 13px;
   font-weight: 700;
-  border-radius: 3px;
+  border-radius: 4px;
   flex-shrink: 0;
   line-height: 1;
-  padding: 0 4px;
+  padding: 0 5px;
 }
 
 /* ── TABLAS ─────────────────────────────── */
@@ -285,8 +285,8 @@
 .report-content .data-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 3px 0 9px;
-  font-size: 10px;
+  margin: 4px 0 12px;
+  font-size: 15px;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(27,59,111,0.07);
@@ -298,10 +298,10 @@
 
 .report-content .data-table th {
   border: 1px solid #c8d6ee;
-  padding: 4px 7px;
+  padding: 9px 14px;
   text-align: left;
-  font-weight: 600;
-  font-size: 9px;
+  font-weight: 700;
+  font-size: 14px;
   color: #1b3b6f;
   white-space: nowrap;
   vertical-align: middle;
@@ -309,9 +309,10 @@
 
 .report-content .data-table td {
   border: 1px solid #e5ecf8;
-  padding: 3px 7px;
+  padding: 7px 14px;
   text-align: right;
   color: #1f2d3d;
+  font-size: 15px;
   vertical-align: middle;
 }
 
@@ -359,7 +360,7 @@
 
 .report-content .data-table tr.rpt-row-grupo td {
   background: #f0f4fb;
-  font-size: 10.5px;
+  font-size: 14px;
   font-weight: 700;
   color: #1260a8;
   text-transform: uppercase;
@@ -369,7 +370,7 @@
 
 .report-content .data-table tr.rpt-row-grand td {
   background: linear-gradient(90deg, #dce8fa, #e8f4fd);
-  font-size: 12.5px;
+  font-size: 15px;
   font-weight: 700;
   color: #1b3b6f;
   border-top: 2px solid #1260a8;
@@ -394,44 +395,44 @@
 }
 
 .report-content .rpt-kpi-label {
-  font-size: 8px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #4b6a9b;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .report-content .rpt-kpi-big {
-  font-size: 17px;
+  font-size: 28px;
   font-weight: 700;
   color: #1b3b6f;
   line-height: 1.1;
 }
 
 .report-content .rpt-kpi-unit {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
   color: #4b6a9b;
-  margin-left: 2px;
+  margin-left: 3px;
 }
 
 .report-content .rpt-kpi-sub {
-  font-size: 8.5px;
+  font-size: 12px;
   color: #6b82a8;
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
 .report-content .rpt-kpi-inline {
-  font-size: 10px;
+  font-size: 15px;
   color: #374151;
-  margin: 2px 0 8px;
+  margin: 4px 0 10px;
 }
 
 .report-content .rpt-kpi-val {
   font-weight: 700;
   color: #1b3b6f;
-  font-size: 11px;
+  font-size: 16px;
 }
 
 /* ── CAJA COMBUSTIBLE EJECUTIVA ─────────── */
@@ -455,7 +456,7 @@
 }
 
 .report-content .rpt-fuel-title {
-  font-size: 9.5px;
+  font-size: 14px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
@@ -463,9 +464,9 @@
 }
 
 .report-content .rpt-fuel-causa {
-  font-size: 9.5px;
+  font-size: 14px;
   color: #4b5563;
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-style: italic;
 }
 
@@ -529,21 +530,21 @@
   background: #f8f9ff;
   border: 1px dashed #bfcde8;
   border-radius: 5px;
-  padding: 7px 11px;
-  font-size: 8.5px;
+  padding: 10px 14px;
+  font-size: 13px;
   color: #4b5563;
-  line-height: 1.5;
-  margin-top: 8px;
+  line-height: 1.6;
+  margin-top: 10px;
 }
 
 .report-content .rpt-muted {
   color: #9ca3af;
-  font-size: 9px;
+  font-size: 13px;
 }
 
 .report-content p {
-  font-size: 10px;
-  margin: 3px 0 6px;
+  font-size: 15px;
+  margin: 5px 0 8px;
   color: #374151;
 }
 
@@ -551,6 +552,31 @@
 .report-content .data-table tr {
   break-inside: avoid;
   page-break-inside: avoid;
+}
+
+/* ── PRINT / PDF STYLES ─────────────────── */
+@media print {
+  .report-content {
+    font-size: 14px;
+  }
+  .report-content .data-table {
+    font-size: 13px;
+  }
+  .report-content .data-table th {
+    font-size: 12px;
+    padding: 7px 10px;
+  }
+  .report-content .data-table td {
+    font-size: 13px;
+    padding: 5px 10px;
+  }
+  .report-content .rpt-section-title {
+    font-size: 15px;
+    margin: 14px 0 6px;
+  }
+  .report-content .rpt-kpi-big {
+    font-size: 22px;
+  }
 }
 
 /* ===== ELEVATE SYSTEM ===== */

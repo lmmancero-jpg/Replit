@@ -1,13 +1,12 @@
 /**
  * pdfExporter.ts  —  Morro Energy S.A.
  *
- * Exportación PDF con pdfmake:
- *  – Informes: el HTML generado se post-procesa para inyectar estilos inline,
- *    luego html-to-pdfmake lo convierte a definición de documento pdfmake
- *    (texto vectorial, tablas nativas, sin html2canvas para los informes).
- *  – Métricas: html2canvas captura cada sección [data-pdf-section] como
- *    imagen JPEG que pdfmake maqueta en A4 portrait (1 hoja por sección,
- *    sin cortes).
+ * Exportación PDF 100% cliente (sin backend):
+ *  – Informes: html2canvas captura el elemento con ancho A4 forzado a escala
+ *    2×, luego pdfmake maqueta las franjas resultantes en páginas A4 portrait.
+ *    Fidelidad visual perfecta; soporte multi-página automático.
+ *  – Métricas: html2canvas captura cada sección [data-pdf-section] como imagen
+ *    JPEG que pdfmake coloca en una hoja A4 portrait (sin cortes por sección).
  */
 
 const JPEG_QUALITY  = 0.92;
@@ -183,41 +182,90 @@ function injectInlineStyles(html: string): string {
 /**
  * Exporta un informe (diario / mensual / facturación) a PDF A4 portrait.
  *
- * Usa pdfmake (texto vectorial) vía html-to-pdfmake. El HTML generado se
- * post-procesa con injectInlineStyles para que html-to-pdfmake aplique
- * colores, bordes y tipografía correctamente sin CSS externo.
+ * Flujo:
+ *  1. Fuerza el ancho del elemento a 794 px (A4 @96dpi) para captura fiel.
+ *  2. html2canvas renderiza el elemento completo a escala 2x.
+ *  3. El canvas resultante se divide en franjas de altura equivalente a
+ *     una página A4 y cada franja se incrusta como imagen JPEG en pdfmake.
+ *  4. Se restaura el ancho original y se descarga el PDF.
+ *
+ * No requiere backend ni Puppeteer; funciona 100% en el navegador.
  */
 export async function exportReportPDF(
   element:  HTMLElement,
   filename: string,
 ): Promise<void> {
-  const [pm, htmlToPdfmake] = await Promise.all([
-    loadPdfMake(),
-    loadHtmlToPdfmake(),
-  ]);
+  const [pm, h2c] = await Promise.all([loadPdfMake(), loadH2C()]);
 
-  const styledHtml = injectInlineStyles(element.innerHTML);
-  const content    = htmlToPdfmake(styledHtml, { window });
+  // ── A4 dimensions ──────────────────────────────────────────────────────────
+  // A4 portrait a 96 dpi: 794 × 1123 px
+  // Márgenes 15 mm ≈ 57 px → contenido útil: 680 × 1009 px
+  const A4_W_PX   = 794;  // ancho viewport simulado
+  const SCALE     = 2;    // resolución 2x para nitidez
+  // Área útil del PDF en puntos (pdfmake): márgenes 20 pt cada lado
+  const DOC_W_PT  = 555;  // ≈ A4(595) - 2×20
+  const DOC_H_PT  = 802;  // ≈ A4(842) - 2×20
 
-  const docDef: any = {
+  // ── Forzar ancho A4 para captura ──────────────────────────────────────────
+  const prevStyle = element.getAttribute("style") ?? "";
+  element.style.width    = `${A4_W_PX}px`;
+  element.style.maxWidth = `${A4_W_PX}px`;
+  element.style.overflow = "visible";
+
+  let fullCanvas: HTMLCanvasElement;
+  try {
+    fullCanvas = await h2c(element, {
+      scale:           SCALE,
+      useCORS:         true,
+      allowTaint:      false,
+      logging:         false,
+      backgroundColor: "#ffffff",
+      windowWidth:     A4_W_PX,
+      scrollX:         0,
+      scrollY:         0,
+    }) as HTMLCanvasElement;
+  } finally {
+    element.setAttribute("style", prevStyle);
+  }
+
+  // ── Calcular altura de página en px de canvas ─────────────────────────────
+  // DOC_H_PT/DOC_W_PT * A4_W_PX * SCALE = pageH in canvas px
+  const pageHeightPx = Math.round((DOC_H_PT / DOC_W_PT) * A4_W_PX * SCALE);
+  const totalH       = fullCanvas.height;
+  const pages        = Math.ceil(totalH / pageHeightPx);
+
+  // ── Cortar canvas en franjas de página ───────────────────────────────────
+  const content: any[] = [];
+  for (let i = 0; i < pages; i++) {
+    const srcY      = i * pageHeightPx;
+    const sliceH    = Math.min(pageHeightPx, totalH - srcY);
+    const slice     = document.createElement("canvas");
+    slice.width     = fullCanvas.width;
+    slice.height    = sliceH;
+    const ctx       = slice.getContext("2d")!;
+    ctx.fillStyle   = "#ffffff";
+    ctx.fillRect(0, 0, slice.width, sliceH);
+    ctx.drawImage(fullCanvas, 0, -srcY);
+
+    const dataUrl = slice.toDataURL("image/jpeg", 0.92);
+    const sliceAspect = sliceH / fullCanvas.width;  // h/w ratio of this slice
+    const imgH = Math.round(DOC_W_PT * sliceAspect);
+
+    content.push({
+      image:     dataUrl,
+      width:     DOC_W_PT,
+      height:    Math.min(imgH, DOC_H_PT),
+      alignment: "center",
+      ...(i > 0 ? { pageBreak: "before" } : {}),
+    });
+  }
+
+  pm.createPdf({
     pageSize:        "A4",
     pageOrientation: "portrait",
-    pageMargins:     [22, 22, 22, 22],  // ≈ 8 mm
+    pageMargins:     [20, 20, 20, 20],
     content,
-    defaultStyle: {
-      font:       "Roboto",
-      fontSize:   10,
-      lineHeight: 1.3,
-      color:      "#1f2d3d",
-    },
-    styles: {
-      "html-p":      { margin: [0, 2, 0, 2] },
-      "html-strong": { bold: true },
-      "html-em":     { italics: true },
-    },
-  };
-
-  pm.createPdf(docDef).download(filename);
+  }).download(filename);
 }
 
 /**

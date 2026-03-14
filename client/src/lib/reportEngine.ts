@@ -378,11 +378,12 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     const fmt1   = (x: number) => Number.isFinite(x) ? x.toFixed(1) : "—";
     const fmt0   = (x: number) => Number.isFinite(x) ? x.toFixed(0) : "—";
 
-    // Helpers de impacto y etiqueta
+    // Helpers de impacto y etiqueta — lenguaje institucional
     const impactoLabel = (gal: number) =>
       !Number.isFinite(gal) ? "—"
-      : gal > 0 ? `+${fmt0(gal)} gal (sobreconsumo)`
-      : `${fmt0(gal)} gal (ahorro)`;
+      : Math.abs(gal) < 5 ? "En línea con referencia"
+      : gal > 0 ? `+${fmt0(gal)} gal (por encima de referencia)`
+      : `${fmt0(gal)} gal (por debajo de referencia)`;
     const impactoClass = (gal: number) =>
       !Number.isFinite(gal) ? "" : gal > 0 ? "warn" : "fuel-ahorro";
     const desvLabel = (d: number) =>
@@ -399,38 +400,54 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       }
       if (!today) return `<div class="rpt-notice">Análisis Ejecutivo de Combustible: No se encontró un día válido para análisis.</div>`;
 
-      // Impacto por unidad en el día = (gal/h_hoy - ref) × horas
+      // Impacto total por unidad en el día (para la fila Total U1/U2)
       const dU1 = today.h1 > 0 && Number.isFinite(today.gal_h_u1) && Number.isFinite(galh_ref_u1) ? today.gal_h_u1 - galh_ref_u1 : NaN;
       const dU2 = today.h2 > 0 && Number.isFinite(today.gal_h_u2) && Number.isFinite(galh_ref_u2) ? today.gal_h_u2 - galh_ref_u2 : NaN;
       const impU1_dia = Number.isFinite(dU1) ? dU1 * today.h1 : NaN;
       const impU2_dia = Number.isFinite(dU2) ? dU2 * today.h2 : NaN;
-      const impTotal_dia = (Number.isFinite(impU1_dia) ? impU1_dia : 0) + (Number.isFinite(impU2_dia) ? impU2_dia : 0);
 
-      // Impacto acumulado mes (por unidad)
+      // Impacto HFO y DO por separado en el día (U1+U2)
+      const dHfoU1 = today.h1 > 0 && Number.isFinite(today.gal_h_hfo_u1) && Number.isFinite(galh_hfo_ref_u1) ? today.gal_h_hfo_u1 - galh_hfo_ref_u1 : NaN;
+      const dHfoU2 = today.h2 > 0 && Number.isFinite(today.gal_h_hfo_u2) && Number.isFinite(galh_hfo_ref_u2) ? today.gal_h_hfo_u2 - galh_hfo_ref_u2 : NaN;
+      const dDoU1  = today.h1 > 0 && Number.isFinite(today.gal_h_do_u1)  && Number.isFinite(galh_do_ref_u1)  ? today.gal_h_do_u1  - galh_do_ref_u1  : NaN;
+      const dDoU2  = today.h2 > 0 && Number.isFinite(today.gal_h_do_u2)  && Number.isFinite(galh_do_ref_u2)  ? today.gal_h_do_u2  - galh_do_ref_u2  : NaN;
+      const impHfoU1_dia = Number.isFinite(dHfoU1) ? dHfoU1 * today.h1 : NaN;
+      const impHfoU2_dia = Number.isFinite(dHfoU2) ? dHfoU2 * today.h2 : NaN;
+      const impDoU1_dia  = Number.isFinite(dDoU1)  ? dDoU1  * today.h1 : NaN;
+      const impDoU2_dia  = Number.isFinite(dDoU2)  ? dDoU2  * today.h2 : NaN;
+      const impHfoTotal_dia = (Number.isFinite(impHfoU1_dia) ? impHfoU1_dia : 0) + (Number.isFinite(impHfoU2_dia) ? impHfoU2_dia : 0);
+      const impDoTotal_dia  = (Number.isFinite(impDoU1_dia)  ? impDoU1_dia  : 0) + (Number.isFinite(impDoU2_dia)  ? impDoU2_dia  : 0);
+
+      // Acumulado mes HFO y DO por separado
       const dm = today.date.getMonth(), dy = today.date.getFullYear();
       const endD = new Date(fechaJS.getFullYear(), fechaJS.getMonth(), fechaJS.getDate());
-      let impAcumU1 = 0, impAcumU2 = 0;
+      let impAcumHfoU1 = 0, impAcumDoU1 = 0, impAcumHfoU2 = 0, impAcumDoU2 = 0;
       for (const d of metrics) {
         if (d.date.getFullYear() === dy && d.date.getMonth() === dm && d.date <= endD) {
-          if (d.h1 > 0 && Number.isFinite(d.gal_h_u1) && Number.isFinite(galh_ref_u1))
-            impAcumU1 += (d.gal_h_u1 - galh_ref_u1) * d.h1;
-          if (d.h2 > 0 && Number.isFinite(d.gal_h_u2) && Number.isFinite(galh_ref_u2))
-            impAcumU2 += (d.gal_h_u2 - galh_ref_u2) * d.h2;
+          if (d.h1 > 0 && Number.isFinite(d.gal_h_hfo_u1) && Number.isFinite(galh_hfo_ref_u1))
+            impAcumHfoU1 += (d.gal_h_hfo_u1 - galh_hfo_ref_u1) * d.h1;
+          if (d.h1 > 0 && Number.isFinite(d.gal_h_do_u1) && Number.isFinite(galh_do_ref_u1))
+            impAcumDoU1  += (d.gal_h_do_u1  - galh_do_ref_u1)  * d.h1;
+          if (d.h2 > 0 && Number.isFinite(d.gal_h_hfo_u2) && Number.isFinite(galh_hfo_ref_u2))
+            impAcumHfoU2 += (d.gal_h_hfo_u2 - galh_hfo_ref_u2) * d.h2;
+          if (d.h2 > 0 && Number.isFinite(d.gal_h_do_u2) && Number.isFinite(galh_do_ref_u2))
+            impAcumDoU2  += (d.gal_h_do_u2  - galh_do_ref_u2)  * d.h2;
         }
       }
-      const impAcumTotal = impAcumU1 + impAcumU2;
+      const impAcumHfoTotal = impAcumHfoU1 + impAcumHfoU2;
+      const impAcumDoTotal  = impAcumDoU1  + impAcumDoU2;
 
-      // Diagnóstico basado en per-unidad
+      // Diagnóstico institucional
       const msgs: string[] = [];
       if (today.h1 > 0 && Number.isFinite(dU1)) {
-        if (dU1 > 1.0) msgs.push(`U1 con sobreconsumo (+${fmt1(dU1)} gal/h vs referencia)`);
-        else if (dU1 < -1.0) msgs.push(`U1 con ahorro (${fmt1(dU1)} gal/h vs referencia)`);
+        if (dU1 > 1.0) msgs.push(`U1 por encima de referencia en consumo (+${fmt1(dU1)} gal/h)`);
+        else if (dU1 < -1.0) msgs.push(`U1 por debajo de referencia en consumo (${fmt1(dU1)} gal/h)`);
       }
       if (today.h2 > 0 && Number.isFinite(dU2)) {
-        if (dU2 > 1.0) msgs.push(`U2 con sobreconsumo (+${fmt1(dU2)} gal/h vs referencia)`);
-        else if (dU2 < -1.0) msgs.push(`U2 con ahorro (${fmt1(dU2)} gal/h vs referencia)`);
+        if (dU2 > 1.0) msgs.push(`U2 por encima de referencia en consumo (+${fmt1(dU2)} gal/h)`);
+        else if (dU2 < -1.0) msgs.push(`U2 por debajo de referencia en consumo (${fmt1(dU2)} gal/h)`);
       }
-      const causa = msgs.length ? msgs.join(". ") + "." : "Ambas unidades operan dentro de los parámetros de referencia 90D.";
+      const causa = msgs.length ? msgs.join(". ") + "." : "Operación dentro de los parámetros de referencia 90D.";
 
       const rowsU1 = today.h1 > 0 ? `
         <tr class="rpt-row-grupo"><td colspan="5" class="label">Unidad 1 &nbsp;<span class="rpt-muted">(${fmt1(today.h1)} h operadas)</span></td></tr>
@@ -463,28 +480,28 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       ${rowsU1}
       ${rowsU2}
       <tr class="rpt-row-total">
-        <td class="label"><strong>Balance del día (U1+U2)</strong></td>
+        <td class="label"><strong>Balance HFO del día (U1+U2)</strong></td>
         <td colspan="3"></td>
-        <td class="num ${impactoClass(impTotal_dia)}"><strong>${impactoLabel(impTotal_dia)}</strong></td>
+        <td class="num ${impactoClass(impHfoTotal_dia)}"><strong>${impactoLabel(impHfoTotal_dia)}</strong></td>
       </tr>
       <tr class="rpt-row-total">
-        <td class="label"><strong>Acumulado mes U1</strong></td>
+        <td class="label"><strong>Balance DO del día (U1+U2)</strong></td>
         <td colspan="3"></td>
-        <td class="num ${impactoClass(impAcumU1)}">${impactoLabel(impAcumU1)}</td>
-      </tr>
-      <tr class="rpt-row-total">
-        <td class="label"><strong>Acumulado mes U2</strong></td>
-        <td colspan="3"></td>
-        <td class="num ${impactoClass(impAcumU2)}">${impactoLabel(impAcumU2)}</td>
+        <td class="num ${impactoClass(impDoTotal_dia)}"><strong>${impactoLabel(impDoTotal_dia)}</strong></td>
       </tr>
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes TOTAL</strong></td>
+        <td class="label"><strong>Acumulado mes HFO (U1+U2)</strong></td>
         <td colspan="3"></td>
-        <td class="num ${impactoClass(impAcumTotal)}"><strong>${impactoLabel(impAcumTotal)}</strong></td>
+        <td class="num ${impactoClass(impAcumHfoTotal)}">${impactoLabel(impAcumHfoTotal)}</td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Acumulado mes DO (U1+U2)</strong></td>
+        <td colspan="3"></td>
+        <td class="num ${impactoClass(impAcumDoTotal)}">${impactoLabel(impAcumDoTotal)}</td>
       </tr>
     </tbody>
   </table>
-  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">* Consumo por unidad estimado por prorrateo proporcional a energía generada. Referencia 90D por unidad calculada solo con días en que cada una operó.</p>
+  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">* HFO y DO se mantienen separados. Referencia 90D por unidad calculada solo con días en que cada una operó.</p>
 </div>`;
     }
 
@@ -517,16 +534,28 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
     const impTotalM = (Number.isFinite(impU1m) ? impU1m : 0) + (Number.isFinite(impU2m) ? impU2m : 0);
     const pctDO_mes = sumFuel > 0 ? sumDsl / sumFuel : NaN;
 
+    // Impactos HFO y DO separados (mensual)
+    const d_hfo_u1m_total = Number.isFinite(galh_hfo_mes_u1) && Number.isFinite(galh_hfo_ref_u1) ? galh_hfo_mes_u1 - galh_hfo_ref_u1 : NaN;
+    const d_do_u1m_total  = Number.isFinite(galh_do_mes_u1)  && Number.isFinite(galh_do_ref_u1)  ? galh_do_mes_u1  - galh_do_ref_u1  : NaN;
+    const d_hfo_u2m_total = Number.isFinite(galh_hfo_mes_u2) && Number.isFinite(galh_hfo_ref_u2) ? galh_hfo_mes_u2 - galh_hfo_ref_u2 : NaN;
+    const d_do_u2m_total  = Number.isFinite(galh_do_mes_u2)  && Number.isFinite(galh_do_ref_u2)  ? galh_do_mes_u2  - galh_do_ref_u2  : NaN;
+    const impHfoU1m = Number.isFinite(d_hfo_u1m_total) && sumH1 > 0 ? d_hfo_u1m_total * sumH1 : NaN;
+    const impDoU1m  = Number.isFinite(d_do_u1m_total)  && sumH1 > 0 ? d_do_u1m_total  * sumH1 : NaN;
+    const impHfoU2m = Number.isFinite(d_hfo_u2m_total) && sumH2 > 0 ? d_hfo_u2m_total * sumH2 : NaN;
+    const impDoU2m  = Number.isFinite(d_do_u2m_total)  && sumH2 > 0 ? d_do_u2m_total  * sumH2 : NaN;
+    const impHfoTotalM = (Number.isFinite(impHfoU1m) ? impHfoU1m : 0) + (Number.isFinite(impHfoU2m) ? impHfoU2m : 0);
+    const impDoTotalM  = (Number.isFinite(impDoU1m)  ? impDoU1m  : 0) + (Number.isFinite(impDoU2m)  ? impDoU2m  : 0);
+
     const msgsM: string[] = [];
     if (sumH1 > 0 && Number.isFinite(dU1m)) {
-      if (dU1m > 1.0) msgsM.push(`U1 con sobreconsumo en el período (+${fmt1(dU1m)} gal/h vs referencia)`);
-      else if (dU1m < -1.0) msgsM.push(`U1 con ahorro en el período (${fmt1(dU1m)} gal/h vs referencia)`);
+      if (dU1m > 1.0) msgsM.push(`U1 por encima de referencia en el período (+${fmt1(dU1m)} gal/h)`);
+      else if (dU1m < -1.0) msgsM.push(`U1 por debajo de referencia en el período (${fmt1(dU1m)} gal/h)`);
     }
     if (sumH2 > 0 && Number.isFinite(dU2m)) {
-      if (dU2m > 1.0) msgsM.push(`U2 con sobreconsumo en el período (+${fmt1(dU2m)} gal/h vs referencia)`);
-      else if (dU2m < -1.0) msgsM.push(`U2 con ahorro en el período (${fmt1(dU2m)} gal/h vs referencia)`);
+      if (dU2m > 1.0) msgsM.push(`U2 por encima de referencia en el período (+${fmt1(dU2m)} gal/h)`);
+      else if (dU2m < -1.0) msgsM.push(`U2 por debajo de referencia en el período (${fmt1(dU2m)} gal/h)`);
     }
-    const causaM = msgsM.length ? msgsM.join(". ") + "." : "Ambas unidades operaron dentro de los parámetros de referencia 90D.";
+    const causaM = msgsM.length ? msgsM.join(". ") + "." : "Operación dentro de los parámetros de referencia 90D.";
 
     const d_hfo_u1m = Number.isFinite(galh_hfo_mes_u1)&&Number.isFinite(galh_hfo_ref_u1) ? galh_hfo_mes_u1-galh_hfo_ref_u1 : NaN;
     const d_do_u1m  = Number.isFinite(galh_do_mes_u1)&&Number.isFinite(galh_do_ref_u1)   ? galh_do_mes_u1-galh_do_ref_u1   : NaN;
@@ -564,14 +593,19 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       ${rowsU1m}
       ${rowsU2m}
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Balance total del período</strong></td>
+        <td class="label"><strong>Balance HFO del período (U1+U2)</strong></td>
         <td colspan="3"></td>
-        <td class="num ${impactoClass(impTotalM)}"><strong>${impactoLabel(impTotalM)}</strong></td>
+        <td class="num ${impactoClass(impHfoTotalM)}"><strong>${impactoLabel(impHfoTotalM)}</strong></td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Balance DO del período (U1+U2)</strong></td>
+        <td colspan="3"></td>
+        <td class="num ${impactoClass(impDoTotalM)}"><strong>${impactoLabel(impDoTotalM)}</strong></td>
       </tr>
     </tbody>
   </table>
   <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">% Diésel del período: ${fmtPct(pctDO_mes)} &nbsp;|&nbsp; Referencia 90D: ${fmtPct(pctDO_ref)}</p>
-  <p class="rpt-muted" style="font-size:10.5px;margin-top:2px">* Consumo por unidad estimado por prorrateo proporcional a energía generada. Referencia 90D calculada por separado para cada unidad.</p>
+  <p class="rpt-muted" style="font-size:10.5px;margin-top:2px">* HFO y DO se mantienen separados. Referencia 90D calculada por separado para cada unidad.</p>
 </div>`;
   } catch (e) {
     console.error("FuelExecutive error:", e);
@@ -683,6 +717,101 @@ function notaPieIDOM(ref: RefPrev): string {
   <strong>IDOM_D</strong>: 0,4·IE + 0,3·ID + 0,3·(IC_día/IC_ref). &nbsp;
   <strong>Semáforo</strong>: VERDE ≥ 0,85 · AMARILLO 0,75–0,85 · NARANJA 0,65–0,75 · ROJO &lt; 0,65.
 </div>`;
+}
+
+// ========= SÍNTESIS OPERATIVA (reemplaza IDOM en el informe) =========
+
+function buildSintesisOperativa(params: {
+  u1Horas: number;
+  u2Horas: number;
+  shareG1: number;
+  shareG2: number;
+  fp_eff: number;
+  idomScore: number | null;
+  aut_hfo: number;
+  aut_do: number;
+  u1_rest: number;
+  u2_rest: number;
+  esInformeMensual?: boolean;
+}): string {
+  const { u1Horas, u2Horas, shareG1, shareG2, fp_eff, idomScore, aut_hfo, aut_do, u1_rest, u2_rest, esInformeMensual } = params;
+  const fmtP = (x: number) => Number.isFinite(x) && x >= 0 ? x.toFixed(1) + " %" : "—";
+
+  // Disponibilidad
+  const unidadesActivas = (u1Horas > 0 ? 1 : 0) + (u2Horas > 0 ? 1 : 0);
+  const dispPct = unidadesActivas * 50;
+  const dispLectura = dispPct === 100
+    ? "Parque de generación disponible durante el período"
+    : dispPct === 50
+    ? "Una unidad disponible durante el período"
+    : "Sin unidades en operación durante el período";
+
+  // Participación por unidad
+  const part1Lectura = u1Horas > 0
+    ? (shareG1 >= 55 ? "Mayor aporte relativo en la operación del período"
+      : shareG1 >= 45 ? "Aporte equilibrado con respecto a la otra unidad"
+      : "Menor aporte relativo en la operación del período")
+    : "Unidad sin operación en el período";
+  const part2Lectura = u2Horas > 0
+    ? (shareG2 >= 55 ? "Mayor aporte relativo en la operación del período"
+      : shareG2 >= 45 ? "Aporte equilibrado con respecto a la otra unidad"
+      : "Menor aporte relativo en la operación del período")
+    : "Unidad sin operación en el período";
+
+  // Utilización capacidad efectiva
+  const fpPct = fp_eff * 100;
+  const fpLectura = fpPct >= 65
+    ? "Operación a carga alta, acorde a la demanda atendida"
+    : fpPct >= 35
+    ? "Nivel de carga acorde a la demanda atendida"
+    : fpPct > 0
+    ? "Carga reducida en el período"
+    : "Sin operación en el período";
+
+  // Condición operativa
+  let condicion: string, condicionLectura: string;
+  const scoreEfectivo = idomScore !== null ? idomScore : (fp_eff >= 0.60 ? 0.87 : fp_eff >= 0.30 ? 0.76 : 0.60);
+  if (scoreEfectivo >= 0.85) {
+    condicion = "Estable";
+    condicionLectura = "Operación regular durante el período, dentro de los parámetros de referencia";
+  } else if (scoreEfectivo >= 0.75) {
+    condicion = "Estable con variaciones operativas";
+    condicionLectura = "Comportamiento acorde al período, con variaciones dentro del rango operativo";
+  } else {
+    condicion = "Con seguimiento operativo";
+    condicionLectura = "Período con aspectos de seguimiento para el equipo técnico";
+  }
+
+  // Aspecto principal
+  let aspecto: string, aspectoLectura: string;
+  if ((u1Horas > 0 && u1_rest < 500) || (u2Horas > 0 && u2_rest < 500)) {
+    aspecto = "Planificación de mantenimiento preventivo";
+    aspectoLectura = "Se recomienda programar revisión de horas acumuladas de la unidad próxima al intervalo";
+  } else if (aut_hfo > 0 && aut_hfo < 5 && u1Horas + u2Horas > 0) {
+    aspecto = "Seguimiento de reservas HFO";
+    aspectoLectura = "Se recomienda monitorear niveles de stock de Fuel Oil Pesado";
+  } else if (aut_do > 0 && aut_do < 5 && u1Horas + u2Horas > 0) {
+    aspecto = "Seguimiento de reservas de Diésel";
+    aspectoLectura = "Se recomienda monitorear niveles de stock de Diésel (DO)";
+  } else {
+    aspecto = "Operación regular";
+    aspectoLectura = "Sin aspectos operativos de atención inmediata identificados en el período";
+  }
+
+  const periodoLabel = esInformeMensual ? "del mes" : "del día";
+
+  return `<table class="data-table"><thead><tr>
+<th style="width:34%">Indicador</th>
+<th style="width:16%;text-align:center">Valor</th>
+<th>Lectura ejecutiva</th>
+</tr></thead><tbody>
+<tr><td class="label">Disponibilidad de central</td><td class="num" style="text-align:center;font-weight:700">${fmtP(dispPct)}</td><td>${dispLectura}</td></tr>
+<tr><td class="label">Participación operativa U1</td><td class="num" style="text-align:center">${u1Horas > 0 ? fmtP(shareG1) : "—"}</td><td>${part1Lectura}</td></tr>
+<tr><td class="label">Participación operativa U2</td><td class="num" style="text-align:center">${u2Horas > 0 ? fmtP(shareG2) : "—"}</td><td>${part2Lectura}</td></tr>
+<tr><td class="label">Utilización de capacidad efectiva</td><td class="num" style="text-align:center">${fmtP(fpPct)}</td><td>${fpLectura}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Condición operativa ${periodoLabel}</strong></td><td style="text-align:center;font-weight:700;color:#1e3a6e;font-size:14px">${condicion}</td><td>${condicionLectura}</td></tr>
+<tr><td class="label">Aspecto principal de seguimiento</td><td style="text-align:center;color:#374151;font-weight:600;font-size:13px">${aspecto}</td><td>${aspectoLectura}</td></tr>
+</tbody></table>`;
 }
 
 // ========= INFORME DIARIO =========
@@ -831,26 +960,22 @@ export function generarInformeDiario(
 
   const refPrev = calcularReferenciaPromedio3Meses(wbProd, fechaJS);
   const idomDia = calcularIDOMDia(total_gen_kwh, fuelTot, horasOperDia, u1_dia, u2_dia, refPrev);
+  const fp_eff_dia = horasOperDia > 0 ? pmed_total / P_INST_EFECTIVA : 0;
 
-  html += seccion(6, "Indicador de Desempeño Operacional (IDOM)");
-  if (idomDia) {
-    html += `<table class="data-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>
-<tr><td class="label">Referencia (prom. móvil 3 meses)</td><td>${refPrev.mesRef} <span class="rpt-muted">(${refPrev.diasConDato} días con dato)</span></td></tr>
-<tr><td class="label">Rendimiento de referencia (R_ref)</td><td class="num">${fmt(refPrev.R_ref, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de carga de referencia (IC_ref)</td><td class="num">${fmt(refPrev.IC_ref, 3)}</td></tr>
-<tr><td class="label">Rendimiento del día (R_día)</td><td class="num">${fmt(idomDia.R_dia, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de eficiencia (IE)</td><td class="num">${fmt(idomDia.IE, 3)}</td></tr>
-<tr><td class="label">Disponibilidad diaria (ID)</td><td class="num">${fmt(idomDia.ID, 2)}</td></tr>
-<tr><td class="label">Índice de carga del día (IC_día)</td><td class="num">${fmt(idomDia.IC_dia, 3)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>IDOM_D</strong></td><td class="num"><strong>${fmt(idomDia.IDOM, 4)}</strong></td></tr>
-<tr><td class="label">Estado operacional</td><td>${badgeEstado(idomDia.estado)}</td></tr>
-<tr><td class="label">Factor limitante principal</td><td><strong>${idomDia.driver}</strong></td></tr>
-<tr><td class="label">Pérdida energética vs referencia</td><td class="num">${fmt(idomDia.Loss_kWh, 0)} kWh</td></tr>
-</tbody></table>`;
-    html += notaPieIDOM(refPrev);
-  } else {
-    html += `<div class="rpt-notice">No se pudo calcular IDOM: verifique datos completos del día y de la referencia (promedio móvil 3 meses).</div>`;
-  }
+  html += seccion(6, "Síntesis Operativa del Período");
+  html += buildSintesisOperativa({
+    u1Horas: u1_dia,
+    u2Horas: u2_dia,
+    shareG1,
+    shareG2,
+    fp_eff: fp_eff_dia,
+    idomScore: idomDia ? idomDia.IDOM : null,
+    aut_hfo,
+    aut_do,
+    u1_rest,
+    u2_rest,
+    esInformeMensual: false,
+  });
 
   html += seccion(7, "Observaciones");
   html += obs
@@ -1041,31 +1166,27 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
 </tbody></table>`;
 
   const refPrevM = calcularReferenciaPromedio3Meses(wbProd, fechaCorte);
-  html += seccion(6, "Indicador de Desempeño Operacional (IDOM)");
-  if (refPrevM && refPrevM.R_ref > 0 && refPrevM.IC_ref > 0 && fuelTot > 0 && horasOperMes > 0) {
-    const R_mes = rendimiento;
-    const IE_mes = R_mes / refPrevM.R_ref;
+  const idomScoreM: number | null = (() => {
+    if (!refPrevM || !refPrevM.R_ref || !refPrevM.IC_ref || !fuelTot || !horasOperMes) return null;
+    const IE_mes = rendimiento / refPrevM.R_ref;
     const IC_mes = (tot_gen / horasOperMes) / P_INST_EFECTIVA;
-    const ID_mes = 1;
-    const IDOM_M = 0.4 * IE_mes + 0.3 * ID_mes + 0.3 * (IC_mes / refPrevM.IC_ref);
-    const estadoM = semaforo(IDOM_M);
-    const lossM = Math.max(0, fuelTot * refPrevM.R_ref - tot_gen);
+    return 0.4 * IE_mes + 0.3 * 1 + 0.3 * (IC_mes / refPrevM.IC_ref);
+  })();
 
-    html += `<table class="data-table"><thead><tr><th>Parámetro</th><th>Valor</th></tr></thead><tbody>
-<tr><td class="label">Referencia (prom. móvil 3 meses)</td><td>${refPrevM.mesRef} <span class="rpt-muted">(${refPrevM.diasConDato} días)</span></td></tr>
-<tr><td class="label">Rendimiento de referencia (R_ref)</td><td class="num">${fmt(refPrevM.R_ref, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de carga de referencia (IC_ref)</td><td class="num">${fmt(refPrevM.IC_ref, 3)}</td></tr>
-<tr><td class="label">Rendimiento del mes (R_mes)</td><td class="num">${fmt(R_mes, 2)} kWh/gal</td></tr>
-<tr><td class="label">Índice de eficiencia mensual (IE)</td><td class="num">${fmt(IE_mes, 3)}</td></tr>
-<tr><td class="label">Índice de carga mensual (IC_mes)</td><td class="num">${fmt(IC_mes, 3)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>IDOM_M</strong></td><td class="num"><strong>${fmt(IDOM_M, 4)}</strong></td></tr>
-<tr><td class="label">Estado operacional</td><td>${badgeEstado(estadoM)}</td></tr>
-<tr><td class="label">Pérdida energética vs referencia</td><td class="num">${fmt(lossM, 0)} kWh</td></tr>
-</tbody></table>`;
-    html += notaPieIDOM(refPrevM);
-  } else {
-    html += `<div class="rpt-notice">No se pudo calcular IDOM_M: verifique datos del mes y de la referencia (promedio móvil 3 meses).</div>`;
-  }
+  html += seccion(6, "Síntesis Operativa del Período");
+  html += buildSintesisOperativa({
+    u1Horas: u1_mes,
+    u2Horas: u2_mes,
+    shareG1,
+    shareG2,
+    fp_eff,
+    idomScore: idomScoreM,
+    aut_hfo: 0,
+    aut_do: 0,
+    u1_rest: 9999,
+    u2_rest: 9999,
+    esInformeMensual: true,
+  });
 
   return html;
 }

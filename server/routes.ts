@@ -3,6 +3,8 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -65,6 +67,37 @@ export async function registerRoutes(
       res.status(204).send();
     } catch (err) {
       res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.post("/api/export/pdf", async (req, res) => {
+    const { html, filename } = req.body as { html?: string; filename?: string };
+    if (!html || typeof html !== "string") {
+      return res.status(400).json({ error: "Missing html content" });
+    }
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "networkidle0", timeout: 30000 });
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: { top: "15mm", bottom: "15mm", left: "15mm", right: "15mm" },
+      });
+      const safeFilename = (filename || "reporte.pdf").replace(/[^a-zA-Z0-9_.\-]/g, "_");
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
+      res.end(pdfBuffer);
+    } catch (err) {
+      console.error("Puppeteer PDF error:", err);
+      res.status(500).json({ error: "PDF generation failed", detail: String(err) });
+    } finally {
+      if (browser) await browser.close();
     }
   });
 

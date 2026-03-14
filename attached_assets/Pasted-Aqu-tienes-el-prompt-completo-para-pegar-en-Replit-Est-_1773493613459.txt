@@ -1,0 +1,551 @@
+Aquí tienes el prompt completo para pegar en Replit. Está redactado para que no rehaga la app desde cero, sino que corrija y mejore la app existente respetando la estructura actual del informe diario y mensual, y migrando la exportación a Puppeteer.
+
+⸻
+
+Prompt para Replit
+
+Quiero que corrijas y mejores la aplicación web existente de reportes operativos de la Central El Morro – Morro Energy S.A. sin reescribir todo desde cero. Debes trabajar sobre la estructura actual de la app y preservar todo lo que ya funciona, modificando únicamente lo necesario para implementar los siguientes cambios funcionales, visuales y de exportación.
+
+Objetivo general
+
+Mejorar la legibilidad del informe web y PDF, corregir el análisis de combustible para que no mezcle productos distintos, reemplazar el bloque actual de IDOM por una síntesis operativa gerencial más clara, y migrar la exportación de informes y métricas a Puppeteer.
+
+⸻
+
+1. Restricciones de implementación
+	1.	No destruyas la arquitectura actual si ya existe separación entre:
+	•	lectura/mapeo de datos,
+	•	motor de cálculo,
+	•	componentes visuales,
+	•	exportación.
+	2.	No reescribas toda la app desde cero. Haz cambios incrementales sobre el código existente.
+	3.	No elimines secciones actuales del informe salvo el bloque visual del IDOM, que debe ser reemplazado por una nueva sección de síntesis operativa.
+	4.	Mantén el estilo corporativo actual del informe:
+	•	encabezado institucional,
+	•	tablas limpias,
+	•	apariencia ejecutiva,
+	•	tonos azules/grises,
+	•	lenguaje institucional.
+	5.	Debes dejar el código organizado para que:
+	•	el informe diario siga funcionando,
+	•	el informe mensual siga funcionando,
+	•	la exportación a PDF funcione con Puppeteer,
+	•	los cálculos sean consistentes entre vista web y PDF.
+
+⸻
+
+2. Cambios visuales globales: mejorar legibilidad
+
+La vista web actual tiene tipografía demasiado pequeña. Quiero una apariencia más ejecutiva y legible, tanto en pantalla como en PDF.
+
+Ajustes visuales obligatorios
+
+Aumenta tamaños, espacios y jerarquía visual:
+	•	body: mínimo 16px
+	•	texto general de tablas: 16px a 18px
+	•	encabezados de tabla: 17px a 19px
+	•	títulos de sección: 24px a 28px
+	•	subtítulos: 18px a 20px
+	•	números destacados / KPIs: 24px a 32px
+
+Tablas
+
+Mejora todas las tablas del informe:
+	•	mayor padding interno en celdas
+	•	mayor altura de fila
+	•	mejor contraste entre encabezado y contenido
+	•	alineación clara de números a la derecha
+	•	uso consistente de separadores decimales
+	•	evitar tablas apretadas o comprimidas
+
+PDF
+
+La versión impresa debe verse bien en A4:
+	•	texto nunca demasiado pequeño
+	•	filas completas sin cortes visuales
+	•	encabezados legibles
+	•	aspecto tipo informe ejecutivo
+
+⸻
+
+3. Mantener la estructura actual del informe, con estas secciones
+
+Conservar la lógica general del informe diario y mensual. La estructura base actual ya es correcta y debe mantenerse:
+	1.	Producción de energía
+	2.	Distribución por alimentador
+	3.	Combustible y eficiencia
+	4.	Análisis ejecutivo de combustible
+	5.	Horas de operación
+	6.	Stocks y autonomías
+	7.	Nueva síntesis operativa del período
+	8.	Observaciones
+
+En el informe mensual, mantener la misma lógica equivalente.
+
+⸻
+
+4. Cambio crítico: corregir análisis de combustible
+
+Problema actual
+
+El análisis ejecutivo de combustible está mezclando físicamente HFO y Diésel (DO) en un solo balance total en galones, por ejemplo:
+	•	“Balance del día (U1+U2): -419 gal (ahorro)”
+	•	“Acumulado mes TOTAL: -4918 gal (ahorro)”
+
+Eso es incorrecto para lectura gerencial porque:
+	•	HFO y DO son productos distintos,
+	•	tienen precios distintos,
+	•	no deben sumarse en galones como si fueran el mismo producto.
+
+Reglas nuevas obligatorias
+
+Debes modificar la lógica del análisis ejecutivo de combustible para que:
+
+A. El balance se haga por producto separado
+
+Mostrar por separado:
+	•	HFO
+	•	Diésel (DO)
+
+B. Mantener desglose por unidad
+
+Para cada unidad:
+	•	HFO del día
+	•	Referencia HFO
+	•	Desviación HFO
+	•	Balance HFO del día
+	•	Acumulado mes HFO
+	•	DO del día
+	•	Referencia DO
+	•	Desviación DO
+	•	Balance DO del día
+	•	Acumulado mes DO
+
+C. Prohibido mezclar galones de HFO y DO
+
+No mostrar nunca:
+	•	total ahorro galones HFO + DO combinados
+	•	acumulado total en galones combinados
+
+D. Consolidación total solo en dinero
+
+Si se quiere mostrar un total consolidado general, debe ser:
+	•	en USD
+	•	valorizando por separado HFO y DO con sus precios unitarios
+
+Estructura recomendada
+
+En el bloque “Análisis ejecutivo de combustible”, reorganiza así:
+
+Unidad 1
+
+Subbloque HFO:
+	•	gal/h del día
+	•	referencia 90D
+	•	desviación
+	•	balance del día
+	•	acumulado del mes
+
+Subbloque Diésel:
+	•	gal/h del día
+	•	referencia 90D
+	•	desviación
+	•	balance del día
+	•	acumulado del mes
+
+Unidad 2
+
+Igual que U1
+
+Resumen del período
+
+Mostrar:
+	•	balance HFO del día total
+	•	balance DO del día total
+	•	acumulado HFO del mes total
+	•	acumulado DO del mes total
+	•	total económico consolidado del día en USD
+	•	total económico consolidado del mes en USD
+
+Lenguaje
+
+El lenguaje debe ser institucional, sin alarmismo:
+	•	“por debajo de referencia”
+	•	“en línea con referencia”
+	•	“por encima de referencia”
+	•	“ahorro estimado”
+	•	“sobrecosto estimado”
+
+Evitar lenguaje agresivo o alarmista.
+
+⸻
+
+5. Combustible y eficiencia: mantener esta sección, pero mejorar presentación
+
+La sección “Combustible y eficiencia” ya contiene:
+	•	total planta
+	•	estimado por unidad
+	•	gal/h por unidad
+	•	rendimiento global
+
+Esa sección debe mantenerse, pero:
+	•	con tipografía más grande,
+	•	con mejor espaciado,
+	•	con mejor nota aclaratoria,
+	•	con formato más limpio.
+
+No mezclar aquí análisis económico; esta sección sigue siendo operativa/técnica resumida.
+
+⸻
+
+6. Eliminar el bloque visual actual de IDOM y reemplazarlo
+
+Problema
+
+El bloque actual “Indicador de Desempeño Operacional (IDOM)” es demasiado técnico y poco digerible para directores y gerentes. Además:
+	•	repite conceptos ya mostrados en otras secciones,
+	•	usa nomenclatura técnica difícil,
+	•	tiene semáforo y notas técnicas innecesarias para el informe final.
+
+Requerimiento
+
+No mostrar más el bloque visual del IDOM ni el anexo técnico asociado.
+
+Puedes conservar internamente los cálculos si el código los necesita, pero deben dejar de aparecer en pantalla y en PDF.
+
+Reemplazo obligatorio
+
+Crear una nueva sección llamada:
+
+Síntesis Operativa del Período
+
+Esta nueva sección debe ser una tabla gerencial simple y clara, sin anexos, sin fórmulas, sin semáforos y sin palabras que generen pánico.
+
+Qué debe mostrar esta sección
+
+Solo indicadores de interpretación ejecutiva, sin repetir literalmente información ya presentada en otras secciones.
+
+Indicadores recomendados
+	1.	Disponibilidad de central
+	•	valor: porcentaje o razón de unidades disponibles
+	•	lectura ejecutiva breve
+	2.	Participación operativa por unidad
+	•	participación U1
+	•	participación U2
+	•	lectura breve
+	3.	Utilización de capacidad efectiva
+	•	porcentaje
+	•	interpretación neutral: uso acorde a la demanda atendida
+	4.	Condición operativa del período
+	•	texto institucional, por ejemplo:
+	•	Estable
+	•	Estable con variaciones operativas
+	•	Con seguimiento operativo
+	5.	Aspecto principal de seguimiento
+	•	una frase breve, sobria y no alarmista
+
+Importante
+
+No repetir aquí:
+	•	horas operativas, porque ya están en otra sección;
+	•	rendimiento kWh/gal, porque ya está en combustible;
+	•	balances de combustible, porque ya están en análisis ejecutivo de combustible;
+	•	energía generada, porque ya está en producción.
+
+La nueva sección debe ser una lectura ejecutiva de lo anterior, no una duplicación.
+
+Formato sugerido
+
+Tabla de tres columnas:
+	•	Indicador
+	•	Valor
+	•	Lectura ejecutiva
+
+Ejemplo de estilo:
+	•	Disponibilidad de central | 100 % | Parque de generación disponible durante el período
+	•	Participación operativa U1 | 40,4 % | Menor aporte relativo en la operación del período
+	•	Participación operativa U2 | 59,6 % | Mayor aporte relativo en la operación del período
+	•	Utilización de capacidad efectiva | 48 % | Nivel de carga acorde a la demanda atendida
+	•	Condición operativa del período | Estable | Operación regular durante el período
+	•	Aspecto principal de seguimiento | Combustible auxiliar | Conviene seguir su tendencia de consumo
+
+⸻
+
+7. Criterio de lenguaje institucional
+
+Todos los textos automáticos del informe deben evitar alarmismo. No usar:
+	•	crítico
+	•	alarma
+	•	rojo
+	•	emergencia
+	•	riesgo alto
+	•	falla severa
+
+Sí usar:
+	•	estable
+	•	favorable
+	•	aceptable
+	•	con variación moderada
+	•	con seguimiento operativo
+	•	por encima / por debajo de referencia
+	•	operación regular
+	•	comportamiento consistente
+
+⸻
+
+8. Informe mensual: aplicar exactamente la misma filosofía
+
+Los mismos cambios deben replicarse en el informe mensual:
+
+A. Combustible
+
+Separar siempre:
+	•	HFO
+	•	DO
+
+No mezclar galones físicamente en un único total.
+
+Si hay consolidación total:
+	•	solo en USD
+
+B. Indicadores
+
+Eliminar el bloque técnico de desempeño si existe en formato IDOM y reemplazarlo por una Síntesis Operativa del Período / del Mes, con la misma lógica ejecutiva y sobria.
+
+C. Diseño
+
+Mismos cambios de tipografía, tablas y legibilidad.
+
+⸻
+
+9. Migración obligatoria a Puppeteer para exportación PDF
+
+Quiero reemplazar el sistema actual de exportación a PDF por Puppeteer.
+
+Objetivo
+
+Generar PDFs nítidos, bien paginados y visualmente consistentes con la versión web.
+
+Implementación requerida
+
+Debes crear o adaptar el backend para exportar con Puppeteer:
+
+A. Rutas HTML renderizables
+
+La app debe tener rutas de vista completas y limpias para:
+	•	informe diario
+	•	informe mensual
+	•	métricas / dashboard exportable
+
+Ejemplos:
+	•	/reporte/diario?...
+	•	/reporte/mensual?...
+	•	/metricas?...
+
+B. Rutas de exportación PDF
+
+Crear rutas backend para PDF:
+	•	/api/export/diario-pdf
+	•	/api/export/mensual-pdf
+	•	/api/export/metricas-pdf
+
+Estas rutas deben:
+	•	recibir parámetros del período o filtros,
+	•	abrir internamente la vista HTML correspondiente,
+	•	esperar que carguen datos y gráficos,
+	•	exportar a PDF usando Puppeteer.
+
+Configuración mínima de Puppeteer
+
+Usa una implementación robusta con:
+	•	printBackground: true
+	•	format: "A4"
+	•	preferCSSPageSize: true
+	•	márgenes definidos
+	•	waitUntil: "networkidle0"
+
+Además, asegúrate de esperar explícitamente a que:
+	•	terminen de renderizarse tablas,
+	•	terminen de renderizarse gráficas,
+	•	desaparezcan loaders o spinners.
+
+Requerimiento de paginación
+
+Evitar:
+	•	cortes de filas entre páginas
+	•	títulos separados de sus tablas
+	•	gráficas partidas
+	•	encabezados huérfanos al final de página
+
+Usa CSS de impresión con reglas como:
+	•	page-break-inside: avoid
+	•	break-inside: avoid
+	•	repetición de encabezados de tabla si aplica
+	•	bloques de secciones no fragmentables cuando sea razonable
+
+⸻
+
+10. Crear estilos específicos de impresión
+
+Debes agregar estilos @media print o una hoja de estilos específica para exportación PDF.
+
+Reglas de impresión
+	•	el PDF debe usar el mismo estilo corporativo del web
+	•	mejor legibilidad en A4
+	•	tablas nítidas
+	•	márgenes correctos
+	•	encabezado bien posicionado
+	•	fuentes suficientemente grandes
+	•	nada debe salir cortado visualmente
+
+Importante
+
+La versión PDF no debe ser una captura desordenada del DOM. Debe ser un documento bien maquetado desde HTML + CSS.
+
+⸻
+
+11. Métricas / dashboard: exportación también con Puppeteer
+
+Si la app tiene una vista de métricas o dashboard, también debe exportarse por Puppeteer.
+
+Requisitos
+	•	gráficos nítidos
+	•	sin cortes
+	•	bien escalados
+	•	con títulos visibles
+	•	respetando filtros seleccionados
+
+Si hay varias gráficas:
+	•	organizarlas en bloques exportables
+	•	evitar que una gráfica quede partida entre dos páginas
+
+⸻
+
+12. Manejo de datos faltantes
+
+Actualmente, cuando faltan datos, la app no debe mostrar ceros engañosos.
+
+Implementa esta lógica
+
+Si no existen datos válidos para el período:
+	•	mostrar mensaje claro:
+	•	“Sin datos disponibles para el período seleccionado”
+	•	o “No se encontró información válida para generar el informe”
+
+No mostrar:
+	•	0,00
+	•	tablas vacías como si fueran datos reales
+	•	balances ficticios
+
+Esto aplica a:
+	•	vista web
+	•	exportación PDF
+
+⸻
+
+13. Separación de responsabilidades en el código
+
+Sin reescribir toda la app, organiza el código para que haya separación clara entre:
+	1.	Mapeo / lectura de datos
+	2.	Cálculos
+	3.	Presentación
+	4.	Exportación PDF
+
+Cálculos
+
+Toda la lógica nueva de combustible separado y síntesis operativa debe quedar en funciones reutilizables, no incrustada directamente en componentes visuales.
+
+⸻
+
+14. Qué archivos debes tocar o crear
+
+Ajusta los archivos existentes relacionados con:
+	•	componentes del informe diario
+	•	componentes del informe mensual
+	•	motor de cálculo de combustible
+	•	componente del bloque IDOM / nuevo bloque de síntesis operativa
+	•	estilos globales
+	•	estilos de impresión
+	•	rutas backend de exportación
+	•	módulo de exportación PDF
+
+Si hace falta crear archivos nuevos
+
+Puedes crear, por ejemplo:
+	•	print.css
+	•	pdfExport.ts o pdfExport.js
+	•	operationalSummary.ts
+	•	fuelAnalysis.ts
+
+Pero reutiliza lo que ya existe siempre que sea posible.
+
+⸻
+
+15. Entregables requeridos
+
+Quiero que implementes y dejes funcionando:
+	1.	Informe diario actualizado
+	2.	Informe mensual actualizado
+	3.	Análisis de combustible corregido por producto
+	4.	Nueva sección “Síntesis Operativa del Período”
+	5.	Tipografía y tablas mejoradas
+	6.	Exportación a PDF con Puppeteer
+	7.	Exportación de métricas con Puppeteer
+	8.	Manejo correcto de datos faltantes
+
+⸻
+
+16. Qué debes mostrar al finalizar
+
+Cuando termines, necesito:
+	1.	Resumen claro de cambios realizados
+	2.	Lista de archivos modificados y creados
+	3.	Explicación breve de cómo probar:
+	•	informe diario web
+	•	informe mensual web
+	•	exportación PDF diaria
+	•	exportación PDF mensual
+	•	exportación PDF de métricas
+	4.	Si instalaste dependencias nuevas, indícalas claramente
+	5.	Si hubo que adaptar configuración de Replit o del servidor, explícala
+
+⸻
+
+17. Dependencias y compatibilidad en Replit
+
+La solución debe ser compatible con Replit y una cuenta gratuita.
+
+Consideraciones
+	•	usa Puppeteer de forma compatible con entorno Node en Replit
+	•	si hace falta configuración especial para Chromium, impleméntala
+	•	evita soluciones que dependan de servicios pagos
+	•	evita dependencias innecesarias
+
+Si el proyecto es TypeScript, mantén TypeScript.
+Si el proyecto es JavaScript, mantén JavaScript.
+No migres todo el proyecto de un lenguaje a otro sin necesidad.
+
+⸻
+
+18. Criterio final de calidad
+
+La implementación final debe cumplir estas condiciones:
+	•	no romper funcionalidad actual
+	•	informe más legible
+	•	análisis de combustible correcto
+	•	indicadores gerenciales más claros
+	•	PDF profesional y nítido
+	•	lenguaje institucional, sobrio y no alarmista
+	•	código mantenible
+
+Si encuentras ambigüedades, elige la opción más conservadora que preserve la lógica actual y mejore claridad sin introducir cambios drásticos de negocio.
+
+⸻
+
+Instrucción final para ejecutar
+
+Analiza primero la estructura actual del proyecto y luego implementa los cambios paso a paso, mostrando qué partes existentes reutilizas y cuáles corriges. No reemplaces innecesariamente componentes completos si basta con refactorizarlos.
+
+⸻
+
+Si quieres, después te preparo una versión 2 de este prompt todavía más aterrizada a archivos concretos si me pegas el árbol del proyecto o las rutas principales de la app.
