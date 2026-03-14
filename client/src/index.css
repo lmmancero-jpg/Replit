@@ -650,3 +650,202 @@
     inset: -1px;
   }
 }
+
+/* ═══════════════════════════════════════════════════
+   PRINT VIEW — Vista de Impresión A4
+   ════════════════════════════════════════════════ */
+
+/* ── Shell y toolbar ─────────────────────────────── */
+.print-shell {
+  min-height: 100vh;
+  background: #e5e7eb;
+  font-family: 'Inter', system-ui, -apple-system, Arial, sans-serif;
+}
+
+.print-toolbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: #1e3a6e;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.print-toolbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  gap: 12px;
+}
+
+.print-toolbar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.print-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.print-toolbar-warning {
+  margin: 0;
+  padding: 5px 20px;
+  background: rgba(234,179,8,0.2);
+  border-top: 1px solid rgba(234,179,8,0.4);
+  font-size: 12px;
+  color: #fef08a;
+}
+
+/* ── Botones toolbar ─────────────────────────────── */
+.print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.print-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.print-btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+.print-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+.print-btn-outline {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+.print-btn-outline:hover { background: rgba(255,255,255,0.22); }
+
+.print-btn-ghost {
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+  padding: 5px 8px;
+}
+.print-btn-ghost:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── Contenedor de página A4 ─────────────────────── */
+.print-page-wrap {
+  padding-top: 52px; /* altura de toolbar */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 40px;
+}
+
+.print-report {
+  background: #fff;
+  width: 794px;           /* A4 @96dpi */
+  min-height: 1123px;
+  padding: 28px 32px;
+  margin-top: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  border-radius: 2px;
+}
+
+/* ── Estado vacío / error ────────────────────────── */
+.print-status {
+  margin-top: 80px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.print-error {
+  margin-top: 80px;
+  text-align: center;
+  max-width: 460px;
+  color: #374151;
+}
+.print-error h2 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.print-error p {
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ── Clases de control de página ─────────────────── */
+.avoid-break        { break-inside: avoid; page-break-inside: avoid; }
+.page-break-before  { break-before: page;  page-break-before: always; }
+.page-break-after   { break-after: page;   page-break-after: always; }
+.no-print           { /* nada, se oculta solo con @media print */ }
+
+/* ── @media print ────────────────────────────────── */
+@media print {
+  /* Ocultar UI interactiva */
+  .print-toolbar,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Quitar el fondo gris, dejar solo el papel */
+  body,
+  .print-shell,
+  .print-page-wrap {
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .print-report {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 14px 18px !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    min-height: unset !important;
+  }
+
+  /* Estilos de informe para impresión */
+  .report-content {
+    font-size: 13px !important;
+  }
+  .report-content .data-table td {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+  }
+  .report-content .data-table th {
+    font-size: 11px !important;
+    padding: 5px 8px !important;
+  }
+  .report-content .rpt-section-title {
+    font-size: 14px !important;
+    margin: 12px 0 5px !important;
+  }
+  .report-content .rpt-kpi-big {
+    font-size: 22px !important;
+  }
+
+  /* Control de saltos de página */
+  .report-content .data-table tr         { break-inside: avoid; page-break-inside: avoid; }
+  .report-content .rpt-section-title     { break-after: avoid; page-break-after: avoid; }
+  .report-content .rpt-fuel-box          { break-inside: avoid; page-break-inside: avoid; }
+  .report-content .rpt-kpi-row           { break-inside: avoid; page-break-inside: avoid; }
+
+  @page {
+    size: A4 portrait;
+    margin: 14mm 16mm 14mm 16mm;
+  }
+}

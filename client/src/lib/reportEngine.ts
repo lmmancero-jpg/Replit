@@ -449,19 +449,51 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       }
       const causa = msgs.length ? msgs.join(". ") + "." : "Operación dentro de los parámetros de referencia 90D.";
 
+      // ── Helpers desviación para HFO/DO ─────────────────────────────────────
+      const dHfoU1r = Number.isFinite(today.gal_h_hfo_u1)&&Number.isFinite(galh_hfo_ref_u1)?today.gal_h_hfo_u1-galh_hfo_ref_u1:NaN;
+      const dDoU1r  = Number.isFinite(today.gal_h_do_u1) &&Number.isFinite(galh_do_ref_u1) ?today.gal_h_do_u1-galh_do_ref_u1  :NaN;
+      const dHfoU2r = Number.isFinite(today.gal_h_hfo_u2)&&Number.isFinite(galh_hfo_ref_u2)?today.gal_h_hfo_u2-galh_hfo_ref_u2:NaN;
+      const dDoU2r  = Number.isFinite(today.gal_h_do_u2) &&Number.isFinite(galh_do_ref_u2) ?today.gal_h_do_u2-galh_do_ref_u2  :NaN;
+
       const rowsU1 = today.h1 > 0 ? `
-        <tr class="rpt-row-grupo"><td colspan="5" class="label">Unidad 1 &nbsp;<span class="rpt-muted">(${fmt1(today.h1)} h operadas)</span></td></tr>
-        <tr><td class="label" style="padding-left:16px">HFO</td><td class="num">${fmt1(today.gal_h_hfo_u1)}</td><td class="num">${fmt1(galh_hfo_ref_u1)}</td><td class="num ${desvClass(Number.isFinite(today.gal_h_hfo_u1)&&Number.isFinite(galh_hfo_ref_u1)?today.gal_h_hfo_u1-galh_hfo_ref_u1:NaN)}">${desvLabel(Number.isFinite(today.gal_h_hfo_u1)&&Number.isFinite(galh_hfo_ref_u1)?today.gal_h_hfo_u1-galh_hfo_ref_u1:NaN)}</td><td>—</td></tr>
-        <tr><td class="label" style="padding-left:16px">Diésel (DO)</td><td class="num">${fmt1(today.gal_h_do_u1)}</td><td class="num">${fmt1(galh_do_ref_u1)}</td><td class="num ${desvClass(Number.isFinite(today.gal_h_do_u1)&&Number.isFinite(galh_do_ref_u1)?today.gal_h_do_u1-galh_do_ref_u1:NaN)}">${desvLabel(Number.isFinite(today.gal_h_do_u1)&&Number.isFinite(galh_do_ref_u1)?today.gal_h_do_u1-galh_do_ref_u1:NaN)}</td><td>—</td></tr>
-        <tr class="rpt-row-total"><td class="label" style="padding-left:16px"><strong>Total U1</strong></td><td class="num"><strong>${fmt1(today.gal_h_u1)}</strong></td><td class="num">${fmt1(galh_ref_u1)}</td><td class="num ${desvClass(dU1)}"><strong>${desvLabel(dU1)}</strong></td><td class="num ${impactoClass(impU1_dia)}"><strong>${impactoLabel(impU1_dia)}</strong></td></tr>`
-        : `<tr><td class="label">Unidad 1</td><td colspan="4" style="text-align:left;color:#9ca3af;font-style:italic">No operó este día</td></tr>`;
+        <tr class="rpt-row-grupo"><td colspan="6" class="label">Unidad 1 &nbsp;<span class="rpt-muted">(${fmt1(today.h1)} h operadas)</span></td></tr>
+        <tr>
+          <td class="label" style="padding-left:16px">HFO</td>
+          <td class="num">${fmt1(today.gal_h_hfo_u1)}</td>
+          <td class="num">${fmt1(galh_hfo_ref_u1)}</td>
+          <td class="num ${desvClass(dHfoU1r)}">${desvLabel(dHfoU1r)}</td>
+          <td class="num ${impactoClass(impHfoU1_dia)}">${impactoLabel(impHfoU1_dia)}</td>
+          <td class="num ${impactoClass(impAcumHfoU1)}">${impactoLabel(impAcumHfoU1)}</td>
+        </tr>
+        <tr>
+          <td class="label" style="padding-left:16px">Diésel (DO)</td>
+          <td class="num">${fmt1(today.gal_h_do_u1)}</td>
+          <td class="num">${fmt1(galh_do_ref_u1)}</td>
+          <td class="num ${desvClass(dDoU1r)}">${desvLabel(dDoU1r)}</td>
+          <td class="num ${impactoClass(impDoU1_dia)}">${impactoLabel(impDoU1_dia)}</td>
+          <td class="num ${impactoClass(impAcumDoU1)}">${impactoLabel(impAcumDoU1)}</td>
+        </tr>`
+        : `<tr><td class="label">Unidad 1</td><td colspan="5" style="text-align:left;color:#9ca3af;font-style:italic">No operó este día</td></tr>`;
 
       const rowsU2 = today.h2 > 0 ? `
-        <tr class="rpt-row-grupo"><td colspan="5" class="label">Unidad 2 &nbsp;<span class="rpt-muted">(${fmt1(today.h2)} h operadas)</span></td></tr>
-        <tr><td class="label" style="padding-left:16px">HFO</td><td class="num">${fmt1(today.gal_h_hfo_u2)}</td><td class="num">${fmt1(galh_hfo_ref_u2)}</td><td class="num ${desvClass(Number.isFinite(today.gal_h_hfo_u2)&&Number.isFinite(galh_hfo_ref_u2)?today.gal_h_hfo_u2-galh_hfo_ref_u2:NaN)}">${desvLabel(Number.isFinite(today.gal_h_hfo_u2)&&Number.isFinite(galh_hfo_ref_u2)?today.gal_h_hfo_u2-galh_hfo_ref_u2:NaN)}</td><td>—</td></tr>
-        <tr><td class="label" style="padding-left:16px">Diésel (DO)</td><td class="num">${fmt1(today.gal_h_do_u2)}</td><td class="num">${fmt1(galh_do_ref_u2)}</td><td class="num ${desvClass(Number.isFinite(today.gal_h_do_u2)&&Number.isFinite(galh_do_ref_u2)?today.gal_h_do_u2-galh_do_ref_u2:NaN)}">${desvLabel(Number.isFinite(today.gal_h_do_u2)&&Number.isFinite(galh_do_ref_u2)?today.gal_h_do_u2-galh_do_ref_u2:NaN)}</td><td>—</td></tr>
-        <tr class="rpt-row-total"><td class="label" style="padding-left:16px"><strong>Total U2</strong></td><td class="num"><strong>${fmt1(today.gal_h_u2)}</strong></td><td class="num">${fmt1(galh_ref_u2)}</td><td class="num ${desvClass(dU2)}"><strong>${desvLabel(dU2)}</strong></td><td class="num ${impactoClass(impU2_dia)}"><strong>${impactoLabel(impU2_dia)}</strong></td></tr>`
-        : `<tr><td class="label">Unidad 2</td><td colspan="4" style="text-align:left;color:#9ca3af;font-style:italic">No operó este día</td></tr>`;
+        <tr class="rpt-row-grupo"><td colspan="6" class="label">Unidad 2 &nbsp;<span class="rpt-muted">(${fmt1(today.h2)} h operadas)</span></td></tr>
+        <tr>
+          <td class="label" style="padding-left:16px">HFO</td>
+          <td class="num">${fmt1(today.gal_h_hfo_u2)}</td>
+          <td class="num">${fmt1(galh_hfo_ref_u2)}</td>
+          <td class="num ${desvClass(dHfoU2r)}">${desvLabel(dHfoU2r)}</td>
+          <td class="num ${impactoClass(impHfoU2_dia)}">${impactoLabel(impHfoU2_dia)}</td>
+          <td class="num ${impactoClass(impAcumHfoU2)}">${impactoLabel(impAcumHfoU2)}</td>
+        </tr>
+        <tr>
+          <td class="label" style="padding-left:16px">Diésel (DO)</td>
+          <td class="num">${fmt1(today.gal_h_do_u2)}</td>
+          <td class="num">${fmt1(galh_do_ref_u2)}</td>
+          <td class="num ${desvClass(dDoU2r)}">${desvLabel(dDoU2r)}</td>
+          <td class="num ${impactoClass(impDoU2_dia)}">${impactoLabel(impDoU2_dia)}</td>
+          <td class="num ${impactoClass(impAcumDoU2)}">${impactoLabel(impAcumDoU2)}</td>
+        </tr>`
+        : `<tr><td class="label">Unidad 2</td><td colspan="5" style="text-align:left;color:#9ca3af;font-style:italic">No operó este día</td></tr>`;
 
       return `<div class="rpt-fuel-box">
   <div class="rpt-fuel-header">
@@ -474,29 +506,50 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       <th>gal/h del día</th>
       <th>Referencia 90D</th>
       <th>Desviación (gal/h)</th>
-      <th>Balance del día</th>
+      <th>Balance del día (gal)</th>
+      <th>Acumulado mes (gal)</th>
     </tr></thead>
     <tbody>
       ${rowsU1}
       ${rowsU2}
       <tr class="rpt-row-total">
         <td class="label"><strong>Balance HFO del día (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td colspan="4"></td>
         <td class="num ${impactoClass(impHfoTotal_dia)}"><strong>${impactoLabel(impHfoTotal_dia)}</strong></td>
       </tr>
       <tr class="rpt-row-total">
         <td class="label"><strong>Balance DO del día (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td colspan="4"></td>
         <td class="num ${impactoClass(impDoTotal_dia)}"><strong>${impactoLabel(impDoTotal_dia)}</strong></td>
       </tr>
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes HFO (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td class="label"><strong>Acumulado mes HFO – U1</strong></td>
+        <td colspan="4"></td>
+        <td class="num ${impactoClass(impAcumHfoU1)}">${impactoLabel(impAcumHfoU1)}</td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Acumulado mes DO – U1</strong></td>
+        <td colspan="4"></td>
+        <td class="num ${impactoClass(impAcumDoU1)}">${impactoLabel(impAcumDoU1)}</td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Acumulado mes HFO – U2</strong></td>
+        <td colspan="4"></td>
+        <td class="num ${impactoClass(impAcumHfoU2)}">${impactoLabel(impAcumHfoU2)}</td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Acumulado mes DO – U2</strong></td>
+        <td colspan="4"></td>
+        <td class="num ${impactoClass(impAcumDoU2)}">${impactoLabel(impAcumDoU2)}</td>
+      </tr>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Acumulado mes HFO total (U1+U2)</strong></td>
+        <td colspan="4"></td>
         <td class="num ${impactoClass(impAcumHfoTotal)}">${impactoLabel(impAcumHfoTotal)}</td>
       </tr>
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes DO (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td class="label"><strong>Acumulado mes DO total (U1+U2)</strong></td>
+        <td colspan="4"></td>
         <td class="num ${impactoClass(impAcumDoTotal)}">${impactoLabel(impAcumDoTotal)}</td>
       </tr>
     </tbody>
@@ -564,16 +617,38 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
 
     const rowsU1m = sumH1 > 0 ? `
       <tr class="rpt-row-grupo"><td colspan="5" class="label">Unidad 1 &nbsp;<span class="rpt-muted">(${fmt0(sumH1)} h en el período)</span></td></tr>
-      <tr><td class="label" style="padding-left:16px">HFO</td><td class="num">${fmt1(galh_hfo_mes_u1)}</td><td class="num">${fmt1(galh_hfo_ref_u1)}</td><td class="num ${desvClass(d_hfo_u1m)}">${desvLabel(d_hfo_u1m)}</td><td>—</td></tr>
-      <tr><td class="label" style="padding-left:16px">Diésel (DO)</td><td class="num">${fmt1(galh_do_mes_u1)}</td><td class="num">${fmt1(galh_do_ref_u1)}</td><td class="num ${desvClass(d_do_u1m)}">${desvLabel(d_do_u1m)}</td><td>—</td></tr>
-      <tr class="rpt-row-total"><td class="label" style="padding-left:16px"><strong>Total U1</strong></td><td class="num"><strong>${fmt1(galh_mes_u1)}</strong></td><td class="num">${fmt1(galh_ref_u1)}</td><td class="num ${desvClass(dU1m)}"><strong>${desvLabel(dU1m)}</strong></td><td class="num ${impactoClass(impU1m)}"><strong>${impactoLabel(impU1m)}</strong></td></tr>`
+      <tr>
+        <td class="label" style="padding-left:16px">HFO</td>
+        <td class="num">${fmt1(galh_hfo_mes_u1)}</td>
+        <td class="num">${fmt1(galh_hfo_ref_u1)}</td>
+        <td class="num ${desvClass(d_hfo_u1m)}">${desvLabel(d_hfo_u1m)}</td>
+        <td class="num ${impactoClass(impHfoU1m)}">${impactoLabel(impHfoU1m)}</td>
+      </tr>
+      <tr>
+        <td class="label" style="padding-left:16px">Diésel (DO)</td>
+        <td class="num">${fmt1(galh_do_mes_u1)}</td>
+        <td class="num">${fmt1(galh_do_ref_u1)}</td>
+        <td class="num ${desvClass(d_do_u1m)}">${desvLabel(d_do_u1m)}</td>
+        <td class="num ${impactoClass(impDoU1m)}">${impactoLabel(impDoU1m)}</td>
+      </tr>`
       : `<tr><td class="label">Unidad 1</td><td colspan="4" style="text-align:left;color:#9ca3af;font-style:italic">Sin horas en el período</td></tr>`;
 
     const rowsU2m = sumH2 > 0 ? `
       <tr class="rpt-row-grupo"><td colspan="5" class="label">Unidad 2 &nbsp;<span class="rpt-muted">(${fmt0(sumH2)} h en el período)</span></td></tr>
-      <tr><td class="label" style="padding-left:16px">HFO</td><td class="num">${fmt1(galh_hfo_mes_u2)}</td><td class="num">${fmt1(galh_hfo_ref_u2)}</td><td class="num ${desvClass(d_hfo_u2m)}">${desvLabel(d_hfo_u2m)}</td><td>—</td></tr>
-      <tr><td class="label" style="padding-left:16px">Diésel (DO)</td><td class="num">${fmt1(galh_do_mes_u2)}</td><td class="num">${fmt1(galh_do_ref_u2)}</td><td class="num ${desvClass(d_do_u2m)}">${desvLabel(d_do_u2m)}</td><td>—</td></tr>
-      <tr class="rpt-row-total"><td class="label" style="padding-left:16px"><strong>Total U2</strong></td><td class="num"><strong>${fmt1(galh_mes_u2)}</strong></td><td class="num">${fmt1(galh_ref_u2)}</td><td class="num ${desvClass(dU2m)}"><strong>${desvLabel(dU2m)}</strong></td><td class="num ${impactoClass(impU2m)}"><strong>${impactoLabel(impU2m)}</strong></td></tr>`
+      <tr>
+        <td class="label" style="padding-left:16px">HFO</td>
+        <td class="num">${fmt1(galh_hfo_mes_u2)}</td>
+        <td class="num">${fmt1(galh_hfo_ref_u2)}</td>
+        <td class="num ${desvClass(d_hfo_u2m)}">${desvLabel(d_hfo_u2m)}</td>
+        <td class="num ${impactoClass(impHfoU2m)}">${impactoLabel(impHfoU2m)}</td>
+      </tr>
+      <tr>
+        <td class="label" style="padding-left:16px">Diésel (DO)</td>
+        <td class="num">${fmt1(galh_do_mes_u2)}</td>
+        <td class="num">${fmt1(galh_do_ref_u2)}</td>
+        <td class="num ${desvClass(d_do_u2m)}">${desvLabel(d_do_u2m)}</td>
+        <td class="num ${impactoClass(impDoU2m)}">${impactoLabel(impDoU2m)}</td>
+      </tr>`
       : `<tr><td class="label">Unidad 2</td><td colspan="4" style="text-align:left;color:#9ca3af;font-style:italic">Sin horas en el período</td></tr>`;
 
     return `<div class="rpt-fuel-box">
@@ -814,6 +889,80 @@ function buildSintesisOperativa(params: {
 </tbody></table>`;
 }
 
+// ========= IDOM GERENCIAL =========
+
+/**
+ * Genera la tabla gerencial del IDOM con 5 filas y conclusión.
+ * Reemplaza buildSintesisOperativa en la sección 6 de cada informe.
+ */
+function buildIDOMGerencial(params: {
+  idomScore: number | null;
+  ie: number;
+  driver: string;
+  lossKwh: number;
+  dispPct: number;
+}): string {
+  const { idomScore, ie, driver, lossKwh, dispPct } = params;
+
+  const idomVal = idomScore !== null ? idomScore.toFixed(4) : "—";
+  const idomLectura = idomScore === null
+    ? "Sin datos de referencia disponibles para calcular IDOM"
+    : idomScore >= 0.90 ? "Desempeño operativo favorable"
+    : idomScore >= 0.80 ? "Desempeño operativo aceptable"
+    : "Desempeño con seguimiento requerido";
+  const idomClass = idomScore === null ? "" : idomScore >= 0.90 ? "hi" : idomScore >= 0.80 ? "" : "warn";
+
+  const dispStr = dispPct.toFixed(0) + " %";
+  const dispLectura = dispPct >= 100
+    ? "La central se mantuvo disponible durante el período"
+    : dispPct >= 50
+    ? "La disponibilidad se vio parcialmente reducida durante el período"
+    : "La central no operó durante el período";
+
+  const iePct = Number.isFinite(ie) ? ie * 100 : NaN;
+  const ieStr = Number.isFinite(iePct) ? iePct.toFixed(1) + " %" : "—";
+  const ieLectura = !Number.isFinite(iePct)
+    ? "Sin referencia disponible para comparación"
+    : iePct >= 98 ? "Rendimiento en línea con la referencia"
+    : iePct >= 92 ? "Rendimiento ligeramente por debajo de la referencia"
+    : "Rendimiento por debajo de la referencia";
+
+  const lossStr = Number.isFinite(lossKwh) && lossKwh >= 0
+    ? fmt(lossKwh, 0) + " kWh" : "—";
+  const lossLectura = !Number.isFinite(lossKwh) || lossKwh < 0
+    ? "Sin datos suficientes"
+    : lossKwh < 500 ? "Diferencia menor respecto a la referencia"
+    : lossKwh < 2000 ? "Diferencia apreciable respecto a la referencia"
+    : "Diferencia relevante respecto a la referencia";
+
+  const driverLabels: Record<string, string> = {
+    DISPONIBILIDAD: "El factor limitante fue la disponibilidad de unidades en el período",
+    CARGA: "El factor dominante fue el nivel de carga atendida en el período",
+    RENDIMIENTO: "El factor principal fue la eficiencia en el consumo de combustible",
+  };
+  const driverStr     = driver || "—";
+  const driverLectura = driver
+    ? (driverLabels[driver] ?? "Factor no determinado con precisión")
+    : "Sin datos suficientes para determinar el factor";
+
+  const conclusionTexto = idomScore === null
+    ? "Sin datos de referencia histórica disponibles. Se requieren al menos 20 días previos con datos válidos para calcular el IDOM."
+    : `La central operó con ${idomLectura.toLowerCase()}. ${driverLectura}.`;
+
+  return `<table class="data-table"><thead><tr>
+<th style="width:32%">Indicador</th>
+<th style="width:20%;text-align:center">Valor</th>
+<th>Lectura gerencial</th>
+</tr></thead><tbody>
+<tr><td class="label">IDOM del período</td><td class="num ${idomClass}" style="text-align:center;font-weight:700;font-size:16px">${idomVal}</td><td>${idomLectura}</td></tr>
+<tr><td class="label">Disponibilidad de central</td><td class="num" style="text-align:center">${dispStr}</td><td>${dispLectura}</td></tr>
+<tr><td class="label">Eficiencia frente a referencia</td><td class="num" style="text-align:center">${ieStr}</td><td>${ieLectura}</td></tr>
+<tr><td class="label">Pérdida energética estimada</td><td class="num" style="text-align:center">${lossStr}</td><td>${lossLectura}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Factor principal observado</strong></td><td style="text-align:center;font-weight:700;color:#1e3a6e;font-size:13px">${driverStr}</td><td>${driverLectura}</td></tr>
+</tbody></table>
+<p class="rpt-fuel-causa" style="margin-top:8px;font-size:13px"><strong>Conclusión IDOM:</strong> ${conclusionTexto}</p>`;
+}
+
 // ========= INFORME DIARIO =========
 
 export function generarInformeDiario(
@@ -962,7 +1111,7 @@ export function generarInformeDiario(
   const idomDia = calcularIDOMDia(total_gen_kwh, fuelTot, horasOperDia, u1_dia, u2_dia, refPrev);
   const fp_eff_dia = horasOperDia > 0 ? pmed_total / P_INST_EFECTIVA : 0;
 
-  html += seccion(6, "Síntesis Operativa del Período");
+  html += seccion(6, "Síntesis Operativa");
   html += buildSintesisOperativa({
     u1Horas: u1_dia,
     u2Horas: u2_dia,
@@ -1173,7 +1322,7 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
     return 0.4 * IE_mes + 0.3 * 1 + 0.3 * (IC_mes / refPrevM.IC_ref);
   })();
 
-  html += seccion(6, "Síntesis Operativa del Período");
+  html += seccion(6, "Síntesis Operativa");
   html += buildSintesisOperativa({
     u1Horas: u1_mes,
     u2Horas: u2_mes,

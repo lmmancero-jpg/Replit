@@ -1,0 +1,278 @@
+Quiero modificar la app existente sin reescribirla desde cero. Debes trabajar sobre el proyecto actual y conservar toda la funcionalidad que ya sirve. El objetivo es preparar la app para exportación PDF profesional usando un microservicio externo con Puppeteer, porque Puppeteer no corre en Replit NixOS.
+
+OBJETIVO GENERAL
+1. Crear vistas HTML limpias de impresión (“print views”) para:
+   - reporte diario
+   - reporte mensual
+   - métricas / dashboard exportable
+2. Corregir el análisis de combustible para que quede separado por producto y por unidad
+3. Reemplazar la síntesis operativa repetitiva por un bloque IDOM gerencial, claro y fácil de leer
+4. Ajustar la tipografía bajando 1 punto equivalente
+5. Conectar la app a un servicio externo de PDF por HTTP
+6. Mantener html2canvas + jsPDF solo como fallback opcional, no como exportador principal
+
+RESTRICCIONES
+- No reescribir toda la app
+- No romper las rutas actuales
+- No eliminar secciones del informe
+- Mantener el estilo corporativo actual
+- Reutilizar componentes y lógica existentes siempre que sea posible
+
+==================================================
+1. CREAR VISTAS PRINT
+==================================================
+
+Debes crear rutas dedicadas de impresión, separadas de las vistas normales del dashboard.
+
+Crear estas rutas:
+
+- /reporte/diario-print?fecha=YYYY-MM-DD
+- /reporte/mensual-print?mes=YYYY-MM
+- /metricas-print?...params
+
+Estas vistas deben:
+- usar layout A4-friendly
+- ocultar botones, filtros, menús, sidebar, controles de exportación y cualquier UI interactiva
+- mantener el encabezado institucional
+- tener ancho optimizado para impresión
+- usar tipografía ligeramente menor que la actual
+- estar preparadas para Puppeteer
+- tener secciones y bloques bien definidos para controlar saltos de página
+
+No deben ser una copia desordenada de la vista normal. Deben ser una vista específica de impresión.
+
+==================================================
+2. AJUSTE DE TIPOGRAFÍA
+==================================================
+
+Bajar el tamaño de fuente del informe en 1 punto equivalente:
+
+- body / tablas: bajar aprox. de 16px a 15px
+- encabezados de tabla: bajar aprox. de 17-18px a 16-17px
+- títulos de sección: bajar aprox. de 24-26px a 23-25px
+
+No reducir demasiado el padding. Mantener legibilidad y apariencia ejecutiva.
+
+==================================================
+3. CORRECCIÓN DEFINITIVA DEL ANÁLISIS DE COMBUSTIBLE
+==================================================
+
+Problema actual:
+- el análisis sigue mezclando HFO y DO en cierres por unidad o resúmenes no consistentes
+- el balance debe quedar separado por producto y por unidad
+
+Reorganizar la sección “Análisis Ejecutivo de Combustible” con esta estructura exacta:
+
+UNIDAD 1
+- HFO: gal/h del día, referencia 90D, desviación, balance del día, acumulado mes
+- DO: gal/h del día, referencia 90D, desviación, balance del día, acumulado mes
+
+UNIDAD 2
+- HFO: gal/h del día, referencia 90D, desviación, balance del día, acumulado mes
+- DO: gal/h del día, referencia 90D, desviación, balance del día, acumulado mes
+
+RESUMEN TOTAL
+- Balance HFO del día (U1+U2)
+- Balance DO del día (U1+U2)
+- Acumulado mes HFO U1
+- Acumulado mes DO U1
+- Acumulado mes HFO U2
+- Acumulado mes DO U2
+- Acumulado mes HFO total
+- Acumulado mes DO total
+
+REGLAS OBLIGATORIAS:
+- No mostrar “Total U1” ni “Total U2” combinando HFO + DO para balances
+- No sumar HFO y DO en una sola cifra de galones
+- Si existe valorización económica, permitir consolidado total solo en USD
+- Mantener lenguaje institucional:
+  - por debajo de referencia
+  - en línea con referencia
+  - por encima de referencia
+  - ahorro estimado
+  - sobreconsumo estimado
+
+==================================================
+4. REEMPLAZAR LA SÍNTESIS OPERATIVA ACTUAL
+==================================================
+
+Eliminar la sección actual que repite información ya presente en:
+- Producción de energía
+- Combustible y eficiencia
+- Horas de operación
+
+Crear una nueva sección llamada exactamente:
+
+6. ÍNDICE DE DESEMPEÑO OPERACIONAL (IDOM)
+
+Debe ser breve, gerencial, sin anexos, sin fórmulas visibles y sin repetir datos ya mostrados.
+
+Mostrar solo esta tabla:
+
+Columnas:
+- Indicador
+- Valor
+- Lectura gerencial
+
+Filas obligatorias:
+1. IDOM del período
+2. Disponibilidad
+3. Eficiencia frente a referencia
+4. Pérdida energética estimada
+5. Factor principal observado
+
+LÓGICA:
+
+1. IDOM del período
+- usar el índice interno existente
+- mostrar valor con 4 decimales o 3 si visualmente conviene
+- traducir el valor así:
+  - >= 0.90 => “Desempeño operativo favorable”
+  - 0.80 a <0.90 => “Desempeño operativo aceptable”
+  - <0.80 => “Desempeño con seguimiento requerido”
+
+2. Disponibilidad
+- mostrar disponibilidad diaria de la central en %
+- lectura:
+  - 100% => “La central se mantuvo disponible durante el período”
+  - <100% => “La disponibilidad se vio parcialmente reducida durante el período”
+
+3. Eficiencia frente a referencia
+- usar IE o la relación entre rendimiento del día y referencia
+- mostrar en %
+- lectura:
+  - >=98% => “Rendimiento en línea con la referencia”
+  - 92% a <98% => “Rendimiento ligeramente por debajo de la referencia”
+  - <92% => “Rendimiento por debajo de la referencia”
+
+4. Pérdida energética estimada
+- mostrar kWh perdidos vs referencia
+- lectura neutra:
+  - baja => “Diferencia menor respecto a la referencia”
+  - moderada => “Diferencia apreciable respecto a la referencia”
+  - alta => “Diferencia relevante respecto a la referencia”
+
+5. Factor principal observado
+- usar el factor limitante o dominante de la lógica actual
+- mostrar una lectura ejecutiva breve, sin alarmismo
+
+Debajo de la tabla agregar una sola línea:
+“Conclusión IDOM: [texto corto, gerencial y sobrio]”
+
+Ejemplo:
+“Conclusión IDOM: La central operó en condición favorable, con disponibilidad completa. La principal variación del período se relaciona con el rendimiento de combustible respecto a la referencia histórica.”
+
+==================================================
+5. MAQUETACIÓN PRINT A4
+==================================================
+
+Las vistas print deben usar un layout optimizado para PDF A4.
+
+Agregar clases y CSS específicas para impresión, por ejemplo:
+- .print-page
+- .print-section
+- .avoid-break
+- .page-break-before
+- .page-break-after
+
+Aplicar:
+- break-inside: avoid;
+- page-break-inside: avoid;
+- encabezados que no queden huérfanos
+- tablas que no se rompan feamente
+- gráficas que no se partan entre páginas
+
+Estructura sugerida:
+- página 1: encabezado + producción + distribución
+- página 2: combustible y análisis ejecutivo de combustible
+- página 3: horas + stocks + IDOM + observaciones
+
+No forzar esto si rompe demasiado el layout, pero usarlo como guía.
+
+==================================================
+6. CONEXIÓN CON SERVICIO EXTERNO DE PDF
+==================================================
+
+Implementar exportación por servicio HTTP externo, no con Puppeteer local.
+
+Crear funciones cliente para exportar PDF mediante POST a un endpoint externo configurable por variable de entorno.
+
+Usar una variable de entorno como:
+PDF_SERVICE_URL=https://tu-servicio-pdf.up.railway.app
+
+Crear estas funciones:
+- exportarReporteDiarioPDF(fecha)
+- exportarReporteMensualPDF(mes)
+- exportarMetricasPDF(params)
+
+Cada función debe:
+1. construir la URL de la vista print correspondiente
+2. enviarla al servicio externo por POST
+3. recibir el PDF como blob
+4. descargarlo con nombre correcto
+
+Ejemplo de rutas print:
+- ${window.location.origin}/reporte/diario-print?fecha=...
+- ${window.location.origin}/reporte/mensual-print?mes=...
+
+El servicio externo devolverá application/pdf.
+
+==================================================
+7. FALLBACK OPCIONAL
+==================================================
+
+Mantener html2canvas + jsPDF solo como fallback opcional si el servicio externo no responde.
+Pero el flujo principal debe ser:
+Vista print HTML -> servicio externo -> Puppeteer -> PDF
+
+==================================================
+8. MANEJO DE DATOS FALTANTES
+==================================================
+
+Si no existen datos válidos para el período:
+- mostrar mensaje claro:
+  - “Sin datos disponibles para el período seleccionado”
+  - o “No se encontró información válida para generar el informe”
+
+No mostrar ceros engañosos ni tablas vacías como si fueran datos reales.
+
+==================================================
+9. ARCHIVOS / ORGANIZACIÓN
+==================================================
+
+Sin reescribir la app, organiza el código para que queden separadas estas responsabilidades:
+- mapeo / lectura de datos
+- cálculo
+- render de vista normal
+- render de vista print
+- cliente de exportación PDF
+
+Si hace falta, crear archivos como:
+- print.css
+- pdfClient.ts o pdfClient.js
+- idomSummary.ts
+- fuelExecutiveAnalysis.ts
+- PrintLayout.tsx / PrintView.tsx / componentes equivalentes
+
+Mantén el lenguaje actual del proyecto:
+- si es TS, seguir TS
+- si es JS, seguir JS
+
+==================================================
+10. ENTREGABLES
+==================================================
+
+Al finalizar, mostrar:
+1. resumen de cambios
+2. archivos modificados y creados
+3. cómo probar:
+   - reporte diario web
+   - reporte diario print
+   - reporte mensual print
+   - exportación PDF diaria
+   - exportación PDF mensual
+   - exportación PDF de métricas
+4. variables de entorno necesarias
+5. si html2canvas quedó como fallback, indicarlo claramente
+
+Analiza primero la estructura actual del proyecto y luego implementa los cambios paso a paso sin romper lo existente.
