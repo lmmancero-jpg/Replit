@@ -259,7 +259,7 @@ function rptHeader(tipo: string, subtitulo: string): string {
 }
 
 function seccion(n: string | number, titulo: string): string {
-  return `<div class="rpt-section-title"><span class="rpt-section-num">${n}</span>${titulo}</div>`;
+  return `<div class="rpt-section-title"><span class="rpt-section-num">${n}</span><span class="rpt-section-label">${titulo}</span></div>`;
 }
 
 // ========= ANÁLISIS EJECUTIVO DE COMBUSTIBLE =========
@@ -513,48 +513,37 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       ${rowsU1}
       ${rowsU2}
       <tr class="rpt-row-total">
-        <td class="label"><strong>Balance HFO del día (U1+U2)</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impHfoTotal_dia)}"><strong>${impactoLabel(impHfoTotal_dia)}</strong></td>
+        <td class="label" colspan="4"><strong>Balance total HFO del día (U1+U2)</strong></td>
+        <td class="num ${impactoClass(impHfoTotal_dia)}" colspan="2"><strong>${impactoLabel(impHfoTotal_dia)}</strong></td>
       </tr>
       <tr class="rpt-row-total">
-        <td class="label"><strong>Balance DO del día (U1+U2)</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impDoTotal_dia)}"><strong>${impactoLabel(impDoTotal_dia)}</strong></td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes HFO – U1</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumHfoU1)}">${impactoLabel(impAcumHfoU1)}</td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes DO – U1</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumDoU1)}">${impactoLabel(impAcumDoU1)}</td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes HFO – U2</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumHfoU2)}">${impactoLabel(impAcumHfoU2)}</td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes DO – U2</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumDoU2)}">${impactoLabel(impAcumDoU2)}</td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes HFO total (U1+U2)</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumHfoTotal)}">${impactoLabel(impAcumHfoTotal)}</td>
-      </tr>
-      <tr class="rpt-row-grand">
-        <td class="label"><strong>Acumulado mes DO total (U1+U2)</strong></td>
-        <td colspan="4"></td>
-        <td class="num ${impactoClass(impAcumDoTotal)}">${impactoLabel(impAcumDoTotal)}</td>
+        <td class="label" colspan="4"><strong>Balance total DO del día (U1+U2)</strong></td>
+        <td class="num ${impactoClass(impDoTotal_dia)}" colspan="2"><strong>${impactoLabel(impDoTotal_dia)}</strong></td>
       </tr>
     </tbody>
   </table>
-  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">* HFO y DO se mantienen separados. Referencia 90D por unidad calculada solo con días en que cada una operó.</p>
+  <table class="data-table" style="margin-top:6px">
+    <colgroup>
+      <col style="width:34%"><col style="width:16%"><col style="width:16%"><col style="width:16%"><col style="width:18%">
+    </colgroup>
+    <thead><tr>
+      <th>Acumulado mes por producto y unidad</th>
+      <th>HFO – U1</th>
+      <th>DO – U1</th>
+      <th>HFO – U2</th>
+      <th>DO – U2</th>
+    </tr></thead>
+    <tbody>
+      <tr class="rpt-row-grand">
+        <td class="label"><strong>Balance acumulado del mes</strong></td>
+        <td class="num ${impactoClass(impAcumHfoU1)}">${impactoLabel(impAcumHfoU1)}</td>
+        <td class="num ${impactoClass(impAcumDoU1)}">${impactoLabel(impAcumDoU1)}</td>
+        <td class="num ${impactoClass(impAcumHfoU2)}">${impactoLabel(impAcumHfoU2)}</td>
+        <td class="num ${impactoClass(impAcumDoU2)}">${impactoLabel(impAcumDoU2)}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="rpt-muted" style="margin-top:5px;font-size:10.5px">* Balance positivo = por encima de referencia (mayor consumo que histórico). Referencia 90D calculada por unidad solo con días operados.</p>
 </div>`;
     }
 
@@ -668,19 +657,16 @@ function buildFuelExecutiveHTML(wbProd: XLSX.WorkBook, fechaJS: Date, mode = "da
       ${rowsU1m}
       ${rowsU2m}
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Balance HFO del período (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td class="label" colspan="4"><strong>Balance total HFO del período (U1+U2)</strong></td>
         <td class="num ${impactoClass(impHfoTotalM)}"><strong>${impactoLabel(impHfoTotalM)}</strong></td>
       </tr>
       <tr class="rpt-row-grand">
-        <td class="label"><strong>Balance DO del período (U1+U2)</strong></td>
-        <td colspan="3"></td>
+        <td class="label" colspan="4"><strong>Balance total DO del período (U1+U2)</strong></td>
         <td class="num ${impactoClass(impDoTotalM)}"><strong>${impactoLabel(impDoTotalM)}</strong></td>
       </tr>
     </tbody>
   </table>
-  <p class="rpt-muted" style="margin-top:6px;font-size:10.5px">% Diésel del período: ${fmtPct(pctDO_mes)} &nbsp;|&nbsp; Referencia 90D: ${fmtPct(pctDO_ref)}</p>
-  <p class="rpt-muted" style="font-size:10.5px;margin-top:2px">* HFO y DO se mantienen separados. Referencia 90D calculada por separado para cada unidad.</p>
+  <p class="rpt-muted" style="margin-top:5px;font-size:10.5px">% Diésel del período: ${fmtPct(pctDO_mes)} &nbsp;|&nbsp; Referencia 90D: ${fmtPct(pctDO_ref)} &nbsp;|&nbsp; Balance positivo = por encima de referencia.</p>
 </div>`;
   } catch (e) {
     console.error("FuelExecutive error:", e);

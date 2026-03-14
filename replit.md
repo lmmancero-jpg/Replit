@@ -1,4 +1,4 @@
-# NEXUS Power Plant Operations — replit.md
+# Central El Morro — Power Plant Operations (NEXUS)
 
 ## Overview
 
