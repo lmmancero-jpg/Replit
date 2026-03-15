@@ -97,6 +97,10 @@ export interface ProdData {
   hfoG2: number[];
   doG1: number[];
   doG2: number[];
+  hfoG1_galH: (number | null)[];
+  hfoG2_galH: (number | null)[];
+  doG1_galH: (number | null)[];
+  doG2_galH: (number | null)[];
 }
 
 export interface AforoData {
@@ -152,6 +156,10 @@ export function extractProduction(wb: XLSX.WorkBook, sheetName: string): ProdDat
   const hfoG2: number[] = [];
   const doG1: number[] = [];
   const doG2: number[] = [];
+  const hfoG1_galH: (number | null)[] = [];
+  const hfoG2_galH: (number | null)[] = [];
+  const doG1_galH: (number | null)[] = [];
+  const doG2_galH: (number | null)[] = [];
 
   for (const r of rows) {
     const d = parseExcelDate(r?.[COL.FECHA]);
@@ -187,15 +195,21 @@ export function extractProduction(wb: XLSX.WorkBook, sheetName: string): ProdDat
     hfoTot.push(hf);
     doTot.push(dox);
     const eSum = e1 + e2;
+    let g1hfo = 0, g2hfo = 0, g1do = 0, g2do = 0;
     if (eSum > 0) {
-      hfoG1.push(hf * (e1 / eSum)); hfoG2.push(hf * (e2 / eSum));
-      doG1.push(dox * (e1 / eSum)); doG2.push(dox * (e2 / eSum));
-    } else {
-      hfoG1.push(0); hfoG2.push(0); doG1.push(0); doG2.push(0);
+      g1hfo = hf * (e1 / eSum); g2hfo = hf * (e2 / eSum);
+      g1do  = dox * (e1 / eSum); g2do  = dox * (e2 / eSum);
     }
+    hfoG1.push(g1hfo); hfoG2.push(g2hfo);
+    doG1.push(g1do);   doG2.push(g2do);
+
+    hfoG1_galH.push(g1hfo > 0 && hu1 > 0 ? g1hfo / hu1 : null);
+    hfoG2_galH.push(g2hfo > 0 && hu2 > 0 ? g2hfo / hu2 : null);
+    doG1_galH.push(g1do  > 0 && hu1 > 0 ? g1do  / hu1  : null);
+    doG2_galH.push(g2do  > 0 && hu2 > 0 ? g2do  / hu2  : null);
   }
 
-  return { sheetName, targetMonth: dom.month, targetYear: dom.year, labels, etotal, aux, lanec, graca, e_u1, e_u2, h_u1, h_u2, pot_u1, pot_u2, rend, hfoTot, doTot, hfoG1, hfoG2, doG1, doG2 };
+  return { sheetName, targetMonth: dom.month, targetYear: dom.year, labels, etotal, aux, lanec, graca, e_u1, e_u2, h_u1, h_u2, pot_u1, pot_u2, rend, hfoTot, doTot, hfoG1, hfoG2, doG1, doG2, hfoG1_galH, hfoG2_galH, doG1_galH, doG2_galH };
 }
 
 export function extractAforo(wb: XLSX.WorkBook, targetMonth: number, targetYear: number): AforoData | null {

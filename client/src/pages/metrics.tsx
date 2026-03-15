@@ -322,7 +322,20 @@ function PdfPrintContent({ data }: { data: ProcessedData }) {
           ))}
         </div>
 
-        {/* Gráficos combustible fila 2 */}
+        {/* Gráficos combustible fila 2 — consumo específico gal/h */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          {[
+            { title: "Consumo HFO por Unidad (gal/h)", ds: [lineDataset("HFO G1", prod.hfoG1_galH, 0), lineDataset("HFO G2", prod.hfoG2_galH, 5)], y: "gal/h" },
+            { title: "Consumo Diésel por Unidad (gal/h)", ds: [lineDataset("DO G1", prod.doG1_galH, 2), lineDataset("DO G2", prod.doG2_galH, 4)], y: "gal/h" },
+          ].map(({ title, ds, y }) => (
+            <div key={title} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "10px 12px 12px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#1f2937", marginBottom: 2 }}>{title}</div>
+              <div style={chartStyle}><Line data={{ labels: prod.labels, datasets: ds }} options={lineOpts(y)} /></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Gráficos combustible fila 3 — consumo diario gal/día + tanques */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
           {[
             { title: "Consumo Diésel por Unidad (gal/día)", ds: [lineDataset("Diésel G1", prod.doG1.map(v => v || null), 2), lineDataset("Diésel G2", prod.doG2.map(v => v || null), 4)], y: "gal" },
