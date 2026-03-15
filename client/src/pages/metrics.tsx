@@ -729,6 +729,12 @@ export default function Metrics() {
                       <ChartCard title="Diésel por Unidad" subtitle="Reparto entre G1 y G2 por energía" accent={P.amber}>
                         <Line data={{ labels: data.prod.labels, datasets: [lineDataset("Diésel G1 (gal)", data.prod.doG1.map(v => v || null), 2), lineDataset("Diésel G2 (gal)", data.prod.doG2.map(v => v || null), 4)] }} options={lineOpts("gal")} />
                       </ChartCard>
+                      <ChartCard title="Consumo HFO por Unidad (gal/h)" subtitle="Tasa horaria G1 y G2" accent={P.blue}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("HFO G1 (gal/h)", data.prod.hfoG1_galH, 0), lineDataset("HFO G2 (gal/h)", data.prod.hfoG2_galH, 5)] }} options={lineOpts("gal/h")} />
+                      </ChartCard>
+                      <ChartCard title="Consumo Diésel por Unidad (gal/h)" subtitle="Tasa horaria G1 y G2" accent={P.amber}>
+                        <Line data={{ labels: data.prod.labels, datasets: [lineDataset("DO G1 (gal/h)", data.prod.doG1_galH, 2), lineDataset("DO G2 (gal/h)", data.prod.doG2_galH, 4)] }} options={lineOpts("gal/h")} />
+                      </ChartCard>
                       <ChartCard title="Tanques HFO — T601 y T602" subtitle="Volumen (gal) a las 00H00" accent={P.blue}>
                         {data.aforo ? <Line data={{ labels: data.aforo.labels, datasets: [lineDataset("T601 (HFO, gal)", data.aforo.t601, 0), lineDataset("T602 (HFO, gal)", data.aforo.t602, 5)] }} options={lineOpts("gal")} /> : <NoAforo />}
                       </ChartCard>
