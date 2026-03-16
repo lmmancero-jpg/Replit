@@ -1391,8 +1391,9 @@ export function generarInformeFacturacion(
   const fijoGra = fijoGraU1 + fijoGraU2;
 
   const costosEfectivos = { ...COSTOS_VARIABLES };
-  if (costoCombTransporte !== undefined) {
-    costosEfectivos.combustible_transporte = costoCombTransporte;
+  const parsedCombTransporte = costoCombTransporte !== undefined ? Number(costoCombTransporte) : NaN;
+  if (!isNaN(parsedCombTransporte) && parsedCombTransporte >= 0) {
+    costosEfectivos.combustible_transporte = parsedCombTransporte;
   }
   const costoVarTotalEfectivo = Object.values(costosEfectivos).reduce((a, b) => a + b, 0);
 
