@@ -36,6 +36,7 @@ const COSTOS_VARIABLES: Record<string, number> = {
 
 const COSTO_VARIABLE_TOTAL = Object.values(COSTOS_VARIABLES).reduce((a, b) => a + b, 0);
 const COSTO_FIJO_MENSUAL_POR_UNIDAD = 30720;
+const CBMT_U1_MENSUAL = 17664.00; // 2400 kW × 7.36 USD/kW-mes (Cargo Base por Mantenimiento y Transmisión U1)
 
 const P_INST_TOTAL = 5100;
 const P_INST_EFECTIVA = 0.85 * P_INST_TOTAL;
@@ -1404,6 +1405,11 @@ export function generarInformeFacturacion(
   const fijoLan = fijoLanU1 + fijoLanU2;
   const fijoGra = fijoGraU1 + fijoGraU2;
 
+  // ── CBMT Unidad 1 (misma lógica que costo fijo por disponibilidad, solo U1) ──
+  const cbmtU1 = CBMT_U1_MENSUAL * dispU1;           // prorrateo por disponibilidad U1
+  const cbmtLanU1 = cbmtU1 * factorContratoLan;      // asignación proporcional LANEC
+  const cbmtGraU1 = cbmtU1 * factorContratoGra;      // asignación proporcional GRACA
+
   const costosEfectivos = { ...COSTOS_VARIABLES };
   const parsedCombTransporte = costoCombTransporte !== undefined ? Number(costoCombTransporte) : NaN;
   if (!isNaN(parsedCombTransporte) && parsedCombTransporte >= 0) {
@@ -1425,8 +1431,9 @@ export function generarInformeFacturacion(
   const varGraTotal = gra_fact * costoVarTotalEfectivo;
   const varTotTotal = tot_gen * costoVarTotalEfectivo;
 
-  const totalLan = varLanTotal + fijoLan;
-  const totalGra = varGraTotal + fijoGra;
+  // Totales incluyen CBMT U1 (mismo tratamiento que costo fijo por disponibilidad)
+  const totalLan = varLanTotal + fijoLan + cbmtLanU1;
+  const totalGra = varGraTotal + fijoGra + cbmtGraU1;
   const totalTot = totalLan + totalGra;
 
   const precioLan = lan_fact > 0 ? totalLan / lan_fact : 0;
@@ -1442,11 +1449,13 @@ export function generarInformeFacturacion(
     energiaConsumida: number, auxAsig: number, totalFact: number,
     varBy: Record<string, number>, varTotal: number,
     fijoAsigU1: number, fijoAsigU2: number, fijoAsig: number,
+    cbmtAsigU1: number,
     totalUSD: number, precioFinal: number
   ): string {
     const energiaLabel = nombre === "TOTAL" ? "Energía consumida total (LANEC + GRACA)" : `Energía consumida – ${nombre}`;
     const auxLabel = "Auxiliares asignados (proporcional)";
     const totalLabel = nombre === "TOTAL" ? "Energía total a facturar (+auxiliares)" : `Total facturable ${nombre} (+aux.)`;
+    const totalFijo = fijoAsig + cbmtAsigU1;
     return `
 <div class="rpt-section-title"><span class="rpt-section-num">${secLabel}</span>${titulo}</div>
 <table class="data-table">
@@ -1465,10 +1474,11 @@ export function generarInformeFacturacion(
 <tr><td class="label">Servicios Auxiliares</td><td class="num">${fmt(costosEfectivos.servicios_auxiliares, 4)}</td><td class="num">$ ${fmt(varBy.servicios_auxiliares)}</td></tr>
 <tr><td class="label">Margen Variable</td><td class="num">${fmt(costosEfectivos.margen_variable, 4)}</td><td class="num">$ ${fmt(varBy.margen_variable)}</td></tr>
 <tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td><td class="num"><strong>${fmt(costoVarTotalEfectivo, 4)}</strong></td><td class="num"><strong>$ ${fmt(varTotal)}</strong></td></tr>
-<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos (por disponibilidad)</td></tr>
-<tr><td class="label">Costo fijo asignado U1</td><td>—</td><td class="num">$ ${fmt(fijoAsigU1)}</td></tr>
-<tr><td class="label">Costo fijo asignado U2</td><td>—</td><td class="num">$ ${fmt(fijoAsigU2)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo fijo asignado</strong></td><td>—</td><td class="num"><strong>$ ${fmt(fijoAsig)}</strong></td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos</td></tr>
+<tr><td class="label">Costo fijo por disponibilidad U1</td><td>—</td><td class="num">$ ${fmt(fijoAsigU1)}</td></tr>
+<tr><td class="label">Costo fijo por disponibilidad U2</td><td>—</td><td class="num">$ ${fmt(fijoAsigU2)}</td></tr>
+<tr><td class="label">CBMT Unidad 1</td><td>—</td><td class="num">$ ${fmt(cbmtAsigU1)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo fijo asignado</strong></td><td>—</td><td class="num"><strong>$ ${fmt(totalFijo)}</strong></td></tr>
 <tr class="rpt-row-grand"><td class="label"><strong>TOTAL A FACTURAR</strong></td><td class="num"><strong>USD/kWh: ${fmt(precioFinal, 4)}</strong></td><td class="num"><strong>$ ${fmt(totalUSD)} + IVA</strong></td></tr>
 </tbody></table>`;
   }
@@ -1487,11 +1497,11 @@ export function generarInformeFacturacion(
 </tbody></table>`;
 
   html += tablaCliente("2.0", "Costos del Mes — Totales", "TOTAL",
-    tot_cli, aux, tot_gen, varTotBy, varTotTotal, fijoTotU1, fijoTotU2, fijoTot, totalTot, precioTot);
+    tot_cli, aux, tot_gen, varTotBy, varTotTotal, fijoTotU1, fijoTotU2, fijoTot, cbmtU1, totalTot, precioTot);
   html += tablaCliente("2.1", "Costos del Mes — LANEC", "LANEC",
-    lan, aux_lan, lan_fact, varLanBy, varLanTotal, fijoLanU1, fijoLanU2, fijoLan, totalLan, precioLan);
+    lan, aux_lan, lan_fact, varLanBy, varLanTotal, fijoLanU1, fijoLanU2, fijoLan, cbmtLanU1, totalLan, precioLan);
   html += tablaCliente("2.2", "Costos del Mes — GRACA", "GRACA",
-    gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, totalGra, precioGra);
+    gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, cbmtGraU1, totalGra, precioGra);
 
   // ── SECCIÓN 2.3: Precio real de la producción en función del combustible ──
   if (fuelPrices && (fuelPrices.hfoPriceP1 > 0 || fuelPrices.hfoPriceP2 > 0 ||
@@ -1541,7 +1551,9 @@ export function generarInformeFacturacion(
     const subtotalVarReal     = totalFuelCost + otherVarTotal;
     const subtotalVarRateReal = energyKwh > 0 ? subtotalVarReal / energyKwh : 0;
 
-    const totalRealCost  = subtotalVarReal + fijoTotal;
+    // Costos fijos incluyen disponibilidad + CBMT U1 (mismo prorrateo)
+    const totalFijoReal  = fijoTotal + cbmtU1;
+    const totalRealCost  = subtotalVarReal + totalFijoReal;
     const realTotalPrice = energyKwh > 0 ? totalRealCost / energyKwh : 0;
 
     const fmtG = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -1642,14 +1654,16 @@ export function generarInformeFacturacion(
 <tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td>
   <td class="num"><strong>${fmtP(subtotalVarRateReal)}</strong></td>
   <td class="num"><strong>$ ${fmtU(subtotalVarReal)}</strong></td></tr>
-<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos (por disponibilidad)</td></tr>
-<tr><td class="label">Costo fijo asignado U1</td><td>—</td>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos</td></tr>
+<tr><td class="label">Costo fijo por disponibilidad U1</td><td>—</td>
   <td class="num">$ ${fmtU(fijoU1)}</td></tr>
-<tr><td class="label">Costo fijo asignado U2</td><td>—</td>
+<tr><td class="label">Costo fijo por disponibilidad U2</td><td>—</td>
   <td class="num">$ ${fmtU(fijoU2)}</td></tr>
+<tr><td class="label">CBMT Unidad 1</td><td>—</td>
+  <td class="num">$ ${fmtU(cbmtU1)}</td></tr>
 <tr class="rpt-row-total"><td class="label"><strong>Subtotal costo fijo asignado</strong></td>
   <td>—</td>
-  <td class="num"><strong>$ ${fmtU(fijoTotal)}</strong></td></tr>
+  <td class="num"><strong>$ ${fmtU(totalFijoReal)}</strong></td></tr>
 <tr class="rpt-row-grand"><td class="label"><strong>TOTAL A FACTURAR (costo real)</strong></td>
   <td class="num"><strong>USD/kWh: ${fmtP(realTotalPrice)}</strong></td>
   <td class="num"><strong>$ ${fmtU(totalRealCost)} + IVA</strong></td></tr>
@@ -1657,27 +1671,32 @@ export function generarInformeFacturacion(
 <p class="rpt-muted">* Energía base del período: ${fmtG(energyKwh)} kWh (LANEC + GRACA + Auxiliares). Costos variables restantes calculados a las tarifas contractuales vigentes.</p>`;
   }
 
-  html += seccion(3, "Costo Fijo por Disponibilidad (Auditable)");
+  html += seccion(3, "Costos Fijos (Auditable)");
   html += `<table class="data-table">
 <thead><tr>
-<th>Unidad</th><th>Días mes</th><th>Días indisp.</th><th>Factor disp.</th><th>CF base [USD]</th><th>CF ajustado [USD]</th>
+<th>Rubro / Unidad</th><th>Días mes</th><th>Días indisp.</th><th>Factor disp.</th><th>Base mensual [USD]</th><th>Valor ajustado [USD]</th>
 </tr></thead>
 <tbody>
+<tr class="rpt-row-grupo"><td colspan="6" class="label">Costo Fijo por Disponibilidad (Cargo Base por Reserva)</td></tr>
 <tr><td class="label">Unidad 1</td><td class="num">${diasMes}</td><td class="num">${diasFallaU1}</td><td class="num">${fmt(dispU1, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU1)}</td></tr>
 <tr><td class="label">Unidad 2</td><td class="num">${diasMes}</td><td class="num">${diasFallaU2}</td><td class="num">${fmt(dispU2, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU2)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal CF disponibilidad</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
+<tr class="rpt-row-grupo"><td colspan="6" class="label">CBMT Unidad 1 (Cargo Base por Mantenimiento y Transmisión — 2 400 kW × 7,36 USD/kW-mes)</td></tr>
+<tr><td class="label">Unidad 1</td><td class="num">${diasMes}</td><td class="num">${diasFallaU1}</td><td class="num">${fmt(dispU1, 4)}</td><td class="num">${fmt(CBMT_U1_MENSUAL)}</td><td class="num hi">${fmt(cbmtU1)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal CBMT U1</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(cbmtU1)}</strong></td></tr>
+<tr class="rpt-row-grand"><td class="label"><strong>TOTAL COSTOS FIJOS</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal + cbmtU1)}</strong></td></tr>
 </tbody></table>`;
 
-  html += seccion(4, "Asignación del Costo Fijo a Clientes (Factor Contrato)");
+  html += seccion(4, "Asignación de Costos Fijos a Clientes (Factor Contrato)");
   html += `<table class="data-table">
 <thead><tr>
 <th>Cliente</th><th>kW contratados</th><th>Factor contrato</th>
-<th>CF U1 [USD]</th><th>CF U2 [USD]</th><th>CF total asignado [USD]</th>
+<th>CF disp. U1 [USD]</th><th>CF disp. U2 [USD]</th><th>CF disponib. total [USD]</th><th>CBMT U1 [USD]</th><th>Total fijo asignado [USD]</th>
 </tr></thead>
 <tbody>
-<tr><td class="label">LANEC</td><td class="num">${fmt(P_CONTR_LANEC, 0)}</td><td class="num">${fmt(factorContratoLan * 100, 2)} %</td><td class="num">${fmt(fijoLanU1)}</td><td class="num">${fmt(fijoLanU2)}</td><td class="num hi">${fmt(fijoLan)}</td></tr>
-<tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num hi">${fmt(fijoGra)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
+<tr><td class="label">LANEC</td><td class="num">${fmt(P_CONTR_LANEC, 0)}</td><td class="num">${fmt(factorContratoLan * 100, 2)} %</td><td class="num">${fmt(fijoLanU1)}</td><td class="num">${fmt(fijoLanU2)}</td><td class="num">${fmt(fijoLan)}</td><td class="num">${fmt(cbmtLanU1)}</td><td class="num hi">${fmt(fijoLan + cbmtLanU1)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num">${fmt(fijoGra)}</td><td class="num">${fmt(cbmtGraU1)}</td><td class="num hi">${fmt(fijoGra + cbmtGraU1)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num">${fmt(fijoTotal)}</td><td class="num">${fmt(cbmtU1)}</td><td class="num hi"><strong>${fmt(fijoTotal + cbmtU1)}</strong></td></tr>
 </tbody></table>`;
 
   return html;
