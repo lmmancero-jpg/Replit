@@ -1493,35 +1493,12 @@ export function generarInformeFacturacion(
   html += tablaCliente("2.2", "Costos del Mes — GRACA", "GRACA",
     gra, aux_gra, gra_fact, varGraBy, varGraTotal, fijoGraU1, fijoGraU2, fijoGra, totalGra, precioGra);
 
-  html += seccion(3, "Costo Fijo por Disponibilidad (Auditable)");
-  html += `<table class="data-table">
-<thead><tr>
-<th>Unidad</th><th>Días mes</th><th>Días indisp.</th><th>Factor disp.</th><th>CF base [USD]</th><th>CF ajustado [USD]</th>
-</tr></thead>
-<tbody>
-<tr><td class="label">Unidad 1</td><td class="num">${diasMes}</td><td class="num">${diasFallaU1}</td><td class="num">${fmt(dispU1, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU1)}</td></tr>
-<tr><td class="label">Unidad 2</td><td class="num">${diasMes}</td><td class="num">${diasFallaU2}</td><td class="num">${fmt(dispU2, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU2)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
-</tbody></table>`;
-
-  html += seccion(4, "Asignación del Costo Fijo a Clientes (Factor Contrato)");
-  html += `<table class="data-table">
-<thead><tr>
-<th>Cliente</th><th>kW contratados</th><th>Factor contrato</th>
-<th>CF U1 [USD]</th><th>CF U2 [USD]</th><th>CF total asignado [USD]</th>
-</tr></thead>
-<tbody>
-<tr><td class="label">LANEC</td><td class="num">${fmt(P_CONTR_LANEC, 0)}</td><td class="num">${fmt(factorContratoLan * 100, 2)} %</td><td class="num">${fmt(fijoLanU1)}</td><td class="num">${fmt(fijoLanU2)}</td><td class="num hi">${fmt(fijoLan)}</td></tr>
-<tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num hi">${fmt(fijoGra)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
-</tbody></table>`;
-
   // ── SECCIÓN 2.3: Precio real de la producción en función del combustible ──
   if (fuelPrices && (fuelPrices.hfoPriceP1 > 0 || fuelPrices.hfoPriceP2 > 0 ||
       fuelPrices.dieselPriceP1 > 0 || fuelPrices.dieselPriceP2 > 0)) {
 
     const VAT_RATE = 0.15;
-    const HFO_FREIGHT_PER_GAL   = 430 / 9898;
+    const HFO_FREIGHT_PER_GAL    = 430 / 9898;
     const DIESEL_FREIGHT_PER_GAL = 100 / 2000;
 
     const removeVat = (p: number) => p / (1 + VAT_RATE);
@@ -1547,13 +1524,33 @@ export function generarInformeFacturacion(
     const totalFuelCost   = totalHfoCost + totalDieselCost;
 
     const energyKwh = tot_gen;
-    const realProductionPrice = energyKwh > 0 ? totalFuelCost / energyKwh : 0;
+    const realFuelRate = energyKwh > 0 ? totalFuelCost / energyKwh : 0;
+
+    // Otros costos variables (excluye combustible_transporte) aplicados sobre tot_gen
+    const otherVarCosts = {
+      lubricantes_quimicos:   costosEfectivos.lubricantes_quimicos   * tot_gen,
+      agua_insumos:           costosEfectivos.agua_insumos           * tot_gen,
+      repuestos_predictivo:   costosEfectivos.repuestos_predictivo   * tot_gen,
+      impacto_ambiental:      costosEfectivos.impacto_ambiental      * tot_gen,
+      servicios_auxiliares:   costosEfectivos.servicios_auxiliares   * tot_gen,
+      margen_variable:        costosEfectivos.margen_variable        * tot_gen,
+    };
+    const otherVarRate  = Object.values(costosEfectivos).reduce((a,b) => a+b, 0) - costosEfectivos.combustible_transporte;
+    const otherVarTotal = otherVarRate * tot_gen;
+
+    const subtotalVarReal     = totalFuelCost + otherVarTotal;
+    const subtotalVarRateReal = energyKwh > 0 ? subtotalVarReal / energyKwh : 0;
+
+    const totalRealCost  = subtotalVarReal + fijoTotal;
+    const realTotalPrice = energyKwh > 0 ? totalRealCost / energyKwh : 0;
 
     const fmtG = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     const fmtP = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
     const fmtU = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     html += seccion("2.3", "Precio Real de la Producción en Función del Combustible Consumido");
+
+    // ── Tabla 1: Detalle de costos de combustible por período ──
     html += `<table class="data-table">
 <thead>
 <tr>
@@ -1582,8 +1579,7 @@ export function generarInformeFacturacion(
   <td class="num">${fmtU(hfoCostP2)}</td>
   <td class="num hi">${fmtU(hfoCostP1 + hfoCostP2)}</td></tr>
 <tr><td class="label">Transporte HFO [USD] <span style="font-size:9px;color:#6b7280">(430 USD / 9 898 gal)</span></td>
-  <td class="num">—</td>
-  <td class="num">—</td>
+  <td class="num">—</td><td class="num">—</td>
   <td class="num">${fmtU(hfoFreight)}</td></tr>
 <tr class="rpt-row-total"><td class="label"><strong>Total costo HFO [USD]</strong></td>
   <td colspan="2"></td>
@@ -1607,27 +1603,82 @@ export function generarInformeFacturacion(
   <td class="num">${fmtU(dieselCostP2)}</td>
   <td class="num hi">${fmtU(dieselCostP1 + dieselCostP2)}</td></tr>
 <tr><td class="label">Transporte diésel [USD] <span style="font-size:9px;color:#6b7280">(100 USD / 2 000 gal)</span></td>
-  <td class="num">—</td>
-  <td class="num">—</td>
+  <td class="num">—</td><td class="num">—</td>
   <td class="num">${fmtU(dieselFreight)}</td></tr>
 <tr class="rpt-row-total"><td class="label"><strong>Total costo diésel [USD]</strong></td>
   <td colspan="2"></td>
   <td class="num hi"><strong>${fmtU(totalDieselCost)}</strong></td></tr>
+</tbody></table>
+<p class="rpt-muted">* IVA descontado: precio neto = precio c/IVA ÷ 1,15. Transporte: HFO = 430 USD/9 898 gal; Diésel = 100 USD/2 000 gal.</p>`;
 
-<tr class="rpt-row-grupo"><td colspan="4" class="label">Resumen</td></tr>
-<tr><td class="label"><strong>Costo total combustible [USD]</strong></td>
-  <td colspan="2"></td>
-  <td class="num hi"><strong>${fmtU(totalFuelCost)}</strong></td></tr>
-<tr><td class="label">Energía base del período [kWh]</td>
-  <td colspan="2"></td>
-  <td class="num">${fmtG(energyKwh)}</td></tr>
-<tr class="rpt-row-grand"><td class="label"><strong>Precio real de producción [USD/kWh]</strong></td>
-  <td colspan="2"></td>
-  <td class="num"><strong>${fmtP(realProductionPrice)}</strong></td></tr>
-</tbody>
-</table>
-<p class="rpt-muted">* IVA descontado: precio neto = precio c/IVA ÷ 1,15. Transporte: HFO = 430 USD/9 898 gal; Diésel = 100 USD/2 000 gal. Energía base = total generado (LANEC + GRACA + Auxiliares).</p>`;
+    // ── Tabla 2: Costo total de producción del período ──
+    html += `
+<div class="rpt-section-title" style="font-size:13px;margin-top:14px;margin-bottom:4px">Costo Total de Producción del Período</div>
+<table class="data-table">
+<thead><tr><th>Rubro</th><th>P. Unit [USD/kWh]</th><th>Subtotal [USD]</th></tr></thead>
+<tbody>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos variables de producción</td></tr>
+<tr><td class="label">Combustible real (HFO + Diésel + Transporte)</td>
+  <td class="num">${fmtP(realFuelRate)}</td>
+  <td class="num">$ ${fmtU(totalFuelCost)}</td></tr>
+<tr><td class="label">Lubricantes + Químicos</td>
+  <td class="num">${fmtP(costosEfectivos.lubricantes_quimicos)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.lubricantes_quimicos)}</td></tr>
+<tr><td class="label">Agua + Insumos</td>
+  <td class="num">${fmtP(costosEfectivos.agua_insumos)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.agua_insumos)}</td></tr>
+<tr><td class="label">Repuestos Mantenimiento Predictivo</td>
+  <td class="num">${fmtP(costosEfectivos.repuestos_predictivo)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.repuestos_predictivo)}</td></tr>
+<tr><td class="label">Impacto Ambiental</td>
+  <td class="num">${fmtP(costosEfectivos.impacto_ambiental)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.impacto_ambiental)}</td></tr>
+<tr><td class="label">Servicios Auxiliares</td>
+  <td class="num">${fmtP(costosEfectivos.servicios_auxiliares)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.servicios_auxiliares)}</td></tr>
+<tr><td class="label">Margen Variable</td>
+  <td class="num">${fmtP(costosEfectivos.margen_variable)}</td>
+  <td class="num">$ ${fmtU(otherVarCosts.margen_variable)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td>
+  <td class="num"><strong>${fmtP(subtotalVarRateReal)}</strong></td>
+  <td class="num"><strong>$ ${fmtU(subtotalVarReal)}</strong></td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos (por disponibilidad)</td></tr>
+<tr><td class="label">Costo fijo asignado U1</td><td>—</td>
+  <td class="num">$ ${fmtU(fijoU1)}</td></tr>
+<tr><td class="label">Costo fijo asignado U2</td><td>—</td>
+  <td class="num">$ ${fmtU(fijoU2)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo fijo asignado</strong></td>
+  <td>—</td>
+  <td class="num"><strong>$ ${fmtU(fijoTotal)}</strong></td></tr>
+<tr class="rpt-row-grand"><td class="label"><strong>TOTAL A FACTURAR (costo real)</strong></td>
+  <td class="num"><strong>USD/kWh: ${fmtP(realTotalPrice)}</strong></td>
+  <td class="num"><strong>$ ${fmtU(totalRealCost)} + IVA</strong></td></tr>
+</tbody></table>
+<p class="rpt-muted">* Energía base del período: ${fmtG(energyKwh)} kWh (LANEC + GRACA + Auxiliares). Costos variables restantes calculados a las tarifas contractuales vigentes.</p>`;
   }
+
+  html += seccion(3, "Costo Fijo por Disponibilidad (Auditable)");
+  html += `<table class="data-table">
+<thead><tr>
+<th>Unidad</th><th>Días mes</th><th>Días indisp.</th><th>Factor disp.</th><th>CF base [USD]</th><th>CF ajustado [USD]</th>
+</tr></thead>
+<tbody>
+<tr><td class="label">Unidad 1</td><td class="num">${diasMes}</td><td class="num">${diasFallaU1}</td><td class="num">${fmt(dispU1, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU1)}</td></tr>
+<tr><td class="label">Unidad 2</td><td class="num">${diasMes}</td><td class="num">${diasFallaU2}</td><td class="num">${fmt(dispU2, 4)}</td><td class="num">${fmt(COSTO_FIJO_MENSUAL_POR_UNIDAD)}</td><td class="num hi">${fmt(fijoU2)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td colspan="4"></td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
+</tbody></table>`;
+
+  html += seccion(4, "Asignación del Costo Fijo a Clientes (Factor Contrato)");
+  html += `<table class="data-table">
+<thead><tr>
+<th>Cliente</th><th>kW contratados</th><th>Factor contrato</th>
+<th>CF U1 [USD]</th><th>CF U2 [USD]</th><th>CF total asignado [USD]</th>
+</tr></thead>
+<tbody>
+<tr><td class="label">LANEC</td><td class="num">${fmt(P_CONTR_LANEC, 0)}</td><td class="num">${fmt(factorContratoLan * 100, 2)} %</td><td class="num">${fmt(fijoLanU1)}</td><td class="num">${fmt(fijoLanU2)}</td><td class="num hi">${fmt(fijoLan)}</td></tr>
+<tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num hi">${fmt(fijoGra)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
+</tbody></table>`;
 
   return html;
 }
