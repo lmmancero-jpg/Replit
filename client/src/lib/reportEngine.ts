@@ -1328,12 +1328,20 @@ export function generarInformeMensual(prodBuffer: ArrayBuffer, mesStr: string): 
 
 // ========= INFORME DE FACTURACIÓN =========
 
+interface FuelPrices {
+  hfoPriceP1: number;
+  hfoPriceP2: number;
+  dieselPriceP1: number;
+  dieselPriceP2: number;
+}
+
 export function generarInformeFacturacion(
   prodBuffer: ArrayBuffer,
   mesStr: string,
   diasFallaU1: number,
   diasFallaU2: number,
-  costoCombTransporte?: number
+  costoCombTransporte?: number,
+  fuelPrices?: FuelPrices
 ): string {
   const partes = mesStr.split("-");
   if (partes.length !== 2) throw new Error("Formato de mes inválido.");
@@ -1350,6 +1358,7 @@ export function generarInformeFacturacion(
 
   let lan = 0, gra = 0, aux = 0;
   let ultimoDia = 0;
+  let hfoP1 = 0, hfoP2 = 0, doP1 = 0, doP2 = 0;
 
   for (const r of rows) {
     const key = excelDateKey(r[CONFIG.COL_FECHA]);
@@ -1362,6 +1371,11 @@ export function generarInformeFacturacion(
     lan += posNum(r[CONFIG.COL_LANEC_PARCIAL_KWH]);
     gra += posNum(r[CONFIG.COL_GRACA_PARCIAL_KWH]);
     aux += posNum(r[CONFIG.COL_AUX_KWH]);
+
+    const dayHfo = posNum(r[CONFIG.COL_HFO_GAL]);
+    const dayDo  = posNum(r[CONFIG.COL_DO_GAL]);
+    if (d.getDate() <= 11) { hfoP1 += dayHfo; doP1 += dayDo; }
+    else                   { hfoP2 += dayHfo; doP2 += dayDo; }
   }
 
   const tot_cli = lan + gra;
@@ -1501,6 +1515,119 @@ export function generarInformeFacturacion(
 <tr><td class="label">GRACA</td><td class="num">${fmt(P_CONTR_GRACA, 0)}</td><td class="num">${fmt(factorContratoGra * 100, 2)} %</td><td class="num">${fmt(fijoGraU1)}</td><td class="num">${fmt(fijoGraU2)}</td><td class="num hi">${fmt(fijoGra)}</td></tr>
 <tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td></td><td></td><td class="num">${fmt(fijoU1)}</td><td class="num">${fmt(fijoU2)}</td><td class="num hi"><strong>${fmt(fijoTotal)}</strong></td></tr>
 </tbody></table>`;
+
+  // ── SECCIÓN 2.3: Precio real de la producción en función del combustible ──
+  if (fuelPrices && (fuelPrices.hfoPriceP1 > 0 || fuelPrices.hfoPriceP2 > 0 ||
+      fuelPrices.dieselPriceP1 > 0 || fuelPrices.dieselPriceP2 > 0)) {
+
+    const VAT_RATE = 0.15;
+    const HFO_FREIGHT_PER_GAL   = 430 / 9898;
+    const DIESEL_FREIGHT_PER_GAL = 100 / 2000;
+
+    const removeVat = (p: number) => p / (1 + VAT_RATE);
+
+    const hfoNetP1    = removeVat(fuelPrices.hfoPriceP1);
+    const hfoNetP2    = removeVat(fuelPrices.hfoPriceP2);
+    const dieselNetP1 = removeVat(fuelPrices.dieselPriceP1);
+    const dieselNetP2 = removeVat(fuelPrices.dieselPriceP2);
+
+    const hfoCostP1    = hfoP1 * hfoNetP1;
+    const hfoCostP2    = hfoP2 * hfoNetP2;
+    const dieselCostP1 = doP1 * dieselNetP1;
+    const dieselCostP2 = doP2 * dieselNetP2;
+
+    const hfoTot    = hfoP1 + hfoP2;
+    const dieselTot = doP1 + doP2;
+
+    const hfoFreight    = hfoTot    * HFO_FREIGHT_PER_GAL;
+    const dieselFreight = dieselTot * DIESEL_FREIGHT_PER_GAL;
+
+    const totalHfoCost    = hfoCostP1 + hfoCostP2 + hfoFreight;
+    const totalDieselCost = dieselCostP1 + dieselCostP2 + dieselFreight;
+    const totalFuelCost   = totalHfoCost + totalDieselCost;
+
+    const energyKwh = tot_gen;
+    const realProductionPrice = energyKwh > 0 ? totalFuelCost / energyKwh : 0;
+
+    const fmtG = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const fmtP = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const fmtU = (v: number) => v.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    html += seccion("2.3", "Precio Real de la Producción en Función del Combustible Consumido");
+    html += `<table class="data-table">
+<thead>
+<tr>
+  <th>Concepto</th>
+  <th style="text-align:right">Período 1 (días 1–11)</th>
+  <th style="text-align:right">Período 2 (días 12–fin)</th>
+  <th style="text-align:right">Total</th>
+</tr>
+</thead>
+<tbody>
+<tr class="rpt-row-grupo"><td colspan="4" class="label">HFO — Fuel Oil Pesado</td></tr>
+<tr><td class="label">Consumo HFO [gal]</td>
+  <td class="num">${fmtG(hfoP1)}</td>
+  <td class="num">${fmtG(hfoP2)}</td>
+  <td class="num hi">${fmtG(hfoTot)}</td></tr>
+<tr><td class="label">Precio HFO c/IVA [USD/gal]</td>
+  <td class="num">${fmtP(fuelPrices.hfoPriceP1)}</td>
+  <td class="num">${fmtP(fuelPrices.hfoPriceP2)}</td>
+  <td class="num">—</td></tr>
+<tr><td class="label">Precio HFO s/IVA [USD/gal]</td>
+  <td class="num">${fmtP(hfoNetP1)}</td>
+  <td class="num">${fmtP(hfoNetP2)}</td>
+  <td class="num">—</td></tr>
+<tr><td class="label">Costo neto HFO [USD]</td>
+  <td class="num">${fmtU(hfoCostP1)}</td>
+  <td class="num">${fmtU(hfoCostP2)}</td>
+  <td class="num hi">${fmtU(hfoCostP1 + hfoCostP2)}</td></tr>
+<tr><td class="label">Transporte HFO [USD] <span style="font-size:9px;color:#6b7280">(430 USD / 9 898 gal)</span></td>
+  <td class="num">—</td>
+  <td class="num">—</td>
+  <td class="num">${fmtU(hfoFreight)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Total costo HFO [USD]</strong></td>
+  <td colspan="2"></td>
+  <td class="num hi"><strong>${fmtU(totalHfoCost)}</strong></td></tr>
+
+<tr class="rpt-row-grupo"><td colspan="4" class="label">Diésel</td></tr>
+<tr><td class="label">Consumo diésel [gal]</td>
+  <td class="num">${fmtG(doP1)}</td>
+  <td class="num">${fmtG(doP2)}</td>
+  <td class="num hi">${fmtG(dieselTot)}</td></tr>
+<tr><td class="label">Precio diésel c/IVA [USD/gal]</td>
+  <td class="num">${fmtP(fuelPrices.dieselPriceP1)}</td>
+  <td class="num">${fmtP(fuelPrices.dieselPriceP2)}</td>
+  <td class="num">—</td></tr>
+<tr><td class="label">Precio diésel s/IVA [USD/gal]</td>
+  <td class="num">${fmtP(dieselNetP1)}</td>
+  <td class="num">${fmtP(dieselNetP2)}</td>
+  <td class="num">—</td></tr>
+<tr><td class="label">Costo neto diésel [USD]</td>
+  <td class="num">${fmtU(dieselCostP1)}</td>
+  <td class="num">${fmtU(dieselCostP2)}</td>
+  <td class="num hi">${fmtU(dieselCostP1 + dieselCostP2)}</td></tr>
+<tr><td class="label">Transporte diésel [USD] <span style="font-size:9px;color:#6b7280">(100 USD / 2 000 gal)</span></td>
+  <td class="num">—</td>
+  <td class="num">—</td>
+  <td class="num">${fmtU(dieselFreight)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Total costo diésel [USD]</strong></td>
+  <td colspan="2"></td>
+  <td class="num hi"><strong>${fmtU(totalDieselCost)}</strong></td></tr>
+
+<tr class="rpt-row-grupo"><td colspan="4" class="label">Resumen</td></tr>
+<tr><td class="label"><strong>Costo total combustible [USD]</strong></td>
+  <td colspan="2"></td>
+  <td class="num hi"><strong>${fmtU(totalFuelCost)}</strong></td></tr>
+<tr><td class="label">Energía base del período [kWh]</td>
+  <td colspan="2"></td>
+  <td class="num">${fmtG(energyKwh)}</td></tr>
+<tr class="rpt-row-grand"><td class="label"><strong>Precio real de producción [USD/kWh]</strong></td>
+  <td colspan="2"></td>
+  <td class="num"><strong>${fmtP(realProductionPrice)}</strong></td></tr>
+</tbody>
+</table>
+<p class="rpt-muted">* IVA descontado: precio neto = precio c/IVA ÷ 1,15. Transporte: HFO = 430 USD/9 898 gal; Diésel = 100 USD/2 000 gal. Energía base = total generado (LANEC + GRACA + Auxiliares).</p>`;
+  }
 
   return html;
 }

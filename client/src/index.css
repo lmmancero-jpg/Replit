@@ -899,14 +899,23 @@
     font-size: 22px !important;
   }
 
-  /* Control de saltos de página */
-  .report-content .data-table tr         { break-inside: avoid; page-break-inside: avoid; }
-  .report-content .rpt-section-title     { break-after: avoid; page-break-after: avoid; }
+  /* Control de saltos de página — tablas fluyen entre páginas, filas no se cortan */
+  .report-content .data-table            { break-inside: auto; page-break-inside: auto; }
+  .report-content .data-table thead      { display: table-header-group; }
+  .report-content .data-table tfoot      { display: table-footer-group; }
+  .report-content .data-table tr,
+  .report-content .data-table td,
+  .report-content .data-table th         { break-inside: avoid; page-break-inside: avoid; }
+  .report-content .rpt-section-title     { break-after: avoid; page-break-after: avoid; margin-top: 8px; margin-bottom: 8px; }
   .report-content .rpt-fuel-box          { break-inside: avoid; page-break-inside: avoid; }
   .report-content .rpt-kpi-row           { break-inside: avoid; page-break-inside: avoid; }
+  .report-content .rpt-horom-row         { break-inside: avoid; page-break-inside: avoid; }
+  .report-content .rpt-idom-box          { break-inside: avoid; page-break-inside: avoid; }
+  .report-content h1, .report-content h2,
+  .report-content h3, .report-content h4 { break-after: avoid; page-break-after: avoid; }
 
   @page {
     size: A4 portrait;
-    margin: 14mm 16mm 14mm 16mm;
+    margin: 12mm 10mm;
   }
 }

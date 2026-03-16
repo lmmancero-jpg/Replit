@@ -30,7 +30,7 @@ const PRINT_CSS = `
 
 @page {
   size: A4 portrait;
-  margin: 14mm 16mm;
+  margin: 12mm 10mm;
 }
 
 body {
@@ -163,6 +163,16 @@ body {
   border-collapse: collapse;
   margin: 3px 0 12px;
   font-size: 11px;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+.report-content .data-table thead {
+  display: table-header-group;
+}
+.report-content .data-table tfoot {
+  display: table-footer-group;
+}
+.report-content .data-table tr {
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -497,7 +507,7 @@ export async function registerRoutes(
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "14mm", bottom: "14mm", left: "16mm", right: "16mm" },
+        margin: { top: "12mm", bottom: "12mm", left: "10mm", right: "10mm" },
         displayHeaderFooter: false,
         preferCSSPageSize: true,
       });

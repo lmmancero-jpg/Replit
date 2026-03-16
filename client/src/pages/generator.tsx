@@ -26,6 +26,10 @@ const generatorSchema = z.object({
   u1Downtime: z.coerce.number().min(0).max(31).default(0),
   u2Downtime: z.coerce.number().min(0).max(31).default(0),
   costoCombTransporte: z.coerce.number().min(0).default(0.1153),
+  hfoPriceP1: z.coerce.number().min(0).default(0),
+  hfoPriceP2: z.coerce.number().min(0).default(0),
+  dieselPriceP1: z.coerce.number().min(0).default(0),
+  dieselPriceP2: z.coerce.number().min(0).default(0),
   observations: z.string().optional(),
 });
 
@@ -48,6 +52,10 @@ export default function Generator() {
       u1Downtime: 0,
       u2Downtime: 0,
       costoCombTransporte: 0.1153,
+      hfoPriceP1: 0,
+      hfoPriceP2: 0,
+      dieselPriceP1: 0,
+      dieselPriceP2: 0,
       observations: "",
     },
   });
@@ -84,7 +92,13 @@ export default function Generator() {
           data.reportMonth,
           data.u1Downtime,
           data.u2Downtime,
-          data.costoCombTransporte
+          data.costoCombTransporte,
+          {
+            hfoPriceP1: Number(data.hfoPriceP1) || 0,
+            hfoPriceP2: Number(data.hfoPriceP2) || 0,
+            dieselPriceP1: Number(data.dieselPriceP1) || 0,
+            dieselPriceP2: Number(data.dieselPriceP2) || 0,
+          }
         );
       }
 
@@ -257,6 +271,51 @@ export default function Generator() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Precios de combustible — Sección 2.3 */}
+                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Precios combustible — Sección 2.3 <span className="font-normal text-amber-600">(con IVA, USD/gal)</span>
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <FormField control={form.control} name="hfoPriceP1" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-amber-700">HFO P1 (días 1–11)</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-hfo-p1" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="hfoPriceP2" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-amber-700">HFO P2 (días 12–fin)</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-hfo-p2" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="dieselPriceP1" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-amber-700">Diésel P1 (días 1–11)</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-diesel-p1" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="dieselPriceP2" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs text-amber-700">Diésel P2 (días 12–fin)</FormLabel>
+                          <FormControl>
+                            <Input data-testid="input-diesel-p2" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </div>
 
                   <div className="rounded-md border border-border/50 bg-muted/30 p-3 space-y-3">
                     <div className="space-y-1">
