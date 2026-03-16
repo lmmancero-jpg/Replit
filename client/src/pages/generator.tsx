@@ -25,6 +25,7 @@ const generatorSchema = z.object({
   reportMonth: z.string().min(1, "El mes es requerido"),
   u1Downtime: z.coerce.number().min(0).max(31).default(0),
   u2Downtime: z.coerce.number().min(0).max(31).default(0),
+  costoCombTransporte: z.coerce.number().min(0).default(0.1153),
   observations: z.string().optional(),
 });
 
@@ -46,6 +47,7 @@ export default function Generator() {
       reportMonth: format(new Date(), "yyyy-MM"),
       u1Downtime: 0,
       u2Downtime: 0,
+      costoCombTransporte: 0.1153,
       observations: "",
     },
   });
@@ -81,7 +83,8 @@ export default function Generator() {
           prodBuffer,
           data.reportMonth,
           data.u1Downtime,
-          data.u2Downtime
+          data.u2Downtime,
+          data.costoCombTransporte
         );
       }
 
@@ -231,6 +234,29 @@ export default function Generator() {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="costoCombTransporte"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">
+                          Costo variable Combustible + Transporte <span className="text-muted-foreground">(USD/kWh)</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            data-testid="input-costo-comb-transporte"
+                            type="number"
+                            min="0"
+                            step="0.0001"
+                            className="text-sm h-8 font-mono"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="rounded-md border border-border/50 bg-muted/30 p-3 space-y-3">
                     <div className="space-y-1">

@@ -1332,7 +1332,8 @@ export function generarInformeFacturacion(
   prodBuffer: ArrayBuffer,
   mesStr: string,
   diasFallaU1: number,
-  diasFallaU2: number
+  diasFallaU2: number,
+  costoCombTransporte?: number
 ): string {
   const partes = mesStr.split("-");
   if (partes.length !== 2) throw new Error("Formato de mes inválido.");
@@ -1389,9 +1390,15 @@ export function generarInformeFacturacion(
   const fijoLan = fijoLanU1 + fijoLanU2;
   const fijoGra = fijoGraU1 + fijoGraU2;
 
+  const costosEfectivos = { ...COSTOS_VARIABLES };
+  if (costoCombTransporte !== undefined) {
+    costosEfectivos.combustible_transporte = costoCombTransporte;
+  }
+  const costoVarTotalEfectivo = Object.values(costosEfectivos).reduce((a, b) => a + b, 0);
+
   function subtotalVariable(kwh: number): Record<string, number> {
     const subt: Record<string, number> = {};
-    for (const [k, v] of Object.entries(COSTOS_VARIABLES)) { subt[k] = kwh * v; }
+    for (const [k, v] of Object.entries(costosEfectivos)) { subt[k] = kwh * v; }
     return subt;
   }
 
@@ -1399,9 +1406,9 @@ export function generarInformeFacturacion(
   const varGraBy = subtotalVariable(gra_fact);
   const varTotBy = subtotalVariable(tot_gen);
 
-  const varLanTotal = lan_fact * COSTO_VARIABLE_TOTAL;
-  const varGraTotal = gra_fact * COSTO_VARIABLE_TOTAL;
-  const varTotTotal = tot_gen * COSTO_VARIABLE_TOTAL;
+  const varLanTotal = lan_fact * costoVarTotalEfectivo;
+  const varGraTotal = gra_fact * costoVarTotalEfectivo;
+  const varTotTotal = tot_gen * costoVarTotalEfectivo;
 
   const totalLan = varLanTotal + fijoLan;
   const totalGra = varGraTotal + fijoGra;
@@ -1435,14 +1442,14 @@ export function generarInformeFacturacion(
 <tr><td class="label">${auxLabel}</td><td>—</td><td class="num">${fmt(auxAsig)} kWh</td></tr>
 <tr class="rpt-row-total"><td class="label">${totalLabel}</td><td>—</td><td class="num hi">${fmt(totalFact)} kWh</td></tr>
 <tr class="rpt-row-grupo"><td class="label" colspan="3">Costos variables de producción</td></tr>
-<tr><td class="label">Combustible + Transporte</td><td class="num">${fmt(COSTOS_VARIABLES.combustible_transporte, 4)}</td><td class="num">$ ${fmt(varBy.combustible_transporte)}</td></tr>
-<tr><td class="label">Lubricantes + Químicos</td><td class="num">${fmt(COSTOS_VARIABLES.lubricantes_quimicos, 4)}</td><td class="num">$ ${fmt(varBy.lubricantes_quimicos)}</td></tr>
-<tr><td class="label">Agua + Insumos</td><td class="num">${fmt(COSTOS_VARIABLES.agua_insumos, 4)}</td><td class="num">$ ${fmt(varBy.agua_insumos)}</td></tr>
-<tr><td class="label">Repuestos Mantenimiento Predictivo</td><td class="num">${fmt(COSTOS_VARIABLES.repuestos_predictivo, 4)}</td><td class="num">$ ${fmt(varBy.repuestos_predictivo)}</td></tr>
-<tr><td class="label">Impacto Ambiental</td><td class="num">${fmt(COSTOS_VARIABLES.impacto_ambiental, 4)}</td><td class="num">$ ${fmt(varBy.impacto_ambiental)}</td></tr>
-<tr><td class="label">Servicios Auxiliares</td><td class="num">${fmt(COSTOS_VARIABLES.servicios_auxiliares, 4)}</td><td class="num">$ ${fmt(varBy.servicios_auxiliares)}</td></tr>
-<tr><td class="label">Margen Variable</td><td class="num">${fmt(COSTOS_VARIABLES.margen_variable, 4)}</td><td class="num">$ ${fmt(varBy.margen_variable)}</td></tr>
-<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td><td class="num"><strong>${fmt(COSTO_VARIABLE_TOTAL, 4)}</strong></td><td class="num"><strong>$ ${fmt(varTotal)}</strong></td></tr>
+<tr><td class="label">Combustible + Transporte</td><td class="num">${fmt(costosEfectivos.combustible_transporte, 4)}</td><td class="num">$ ${fmt(varBy.combustible_transporte)}</td></tr>
+<tr><td class="label">Lubricantes + Químicos</td><td class="num">${fmt(costosEfectivos.lubricantes_quimicos, 4)}</td><td class="num">$ ${fmt(varBy.lubricantes_quimicos)}</td></tr>
+<tr><td class="label">Agua + Insumos</td><td class="num">${fmt(costosEfectivos.agua_insumos, 4)}</td><td class="num">$ ${fmt(varBy.agua_insumos)}</td></tr>
+<tr><td class="label">Repuestos Mantenimiento Predictivo</td><td class="num">${fmt(costosEfectivos.repuestos_predictivo, 4)}</td><td class="num">$ ${fmt(varBy.repuestos_predictivo)}</td></tr>
+<tr><td class="label">Impacto Ambiental</td><td class="num">${fmt(costosEfectivos.impacto_ambiental, 4)}</td><td class="num">$ ${fmt(varBy.impacto_ambiental)}</td></tr>
+<tr><td class="label">Servicios Auxiliares</td><td class="num">${fmt(costosEfectivos.servicios_auxiliares, 4)}</td><td class="num">$ ${fmt(varBy.servicios_auxiliares)}</td></tr>
+<tr><td class="label">Margen Variable</td><td class="num">${fmt(costosEfectivos.margen_variable, 4)}</td><td class="num">$ ${fmt(varBy.margen_variable)}</td></tr>
+<tr class="rpt-row-total"><td class="label"><strong>Subtotal costo variable</strong></td><td class="num"><strong>${fmt(costoVarTotalEfectivo, 4)}</strong></td><td class="num"><strong>$ ${fmt(varTotal)}</strong></td></tr>
 <tr class="rpt-row-grupo"><td class="label" colspan="3">Costos fijos (por disponibilidad)</td></tr>
 <tr><td class="label">Costo fijo asignado U1</td><td>—</td><td class="num">$ ${fmt(fijoAsigU1)}</td></tr>
 <tr><td class="label">Costo fijo asignado U2</td><td>—</td><td class="num">$ ${fmt(fijoAsigU2)}</td></tr>
