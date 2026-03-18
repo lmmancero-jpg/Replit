@@ -30,7 +30,7 @@ const PRINT_CSS = `
 
 @page {
   size: A4 portrait;
-  margin: 12mm 10mm;
+  margin: 8mm 8mm;
 }
 
 body {
@@ -165,6 +165,8 @@ body {
   font-size: 11px;
   break-inside: auto;
   page-break-inside: auto;
+  orphans: 3;
+  widows: 3;
 }
 .report-content .data-table thead {
   display: table-header-group;
@@ -253,8 +255,8 @@ body {
   gap: 7px;
   margin: 5px 0 9px;
   flex-wrap: wrap;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .report-content .rpt-kpi-card {
   flex: 1;
@@ -295,8 +297,8 @@ body {
   border-radius: 5px;
   padding: 7px 10px;
   margin: 3px 0 9px;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .report-content .rpt-fuel-header {
   display: flex;
@@ -329,8 +331,8 @@ body {
   border-radius: 6px;
   padding: 10px 14px;
   margin: 4px 0 10px;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .report-content .rpt-idom-score {
   font-size: 20px;
@@ -372,8 +374,8 @@ body {
   gap: 8px;
   margin: 5px 0 10px;
   flex-wrap: wrap;
-  break-inside: avoid;
-  page-break-inside: avoid;
+  break-inside: auto;
+  page-break-inside: auto;
 }
 .report-content .rpt-horom-card {
   flex: 1;
@@ -448,7 +450,7 @@ export async function registerRoutes(
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,
-        margin: { top: "12mm", bottom: "12mm", left: "10mm", right: "10mm" },
+        margin: { top: "8mm", bottom: "8mm", left: "8mm", right: "8mm" },
         displayHeaderFooter: false,
         preferCSSPageSize: true,
       });

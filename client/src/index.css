@@ -253,14 +253,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 22px 0 8px;
-  font-size: 17px;
+  margin: 24px 0 9px;
+  font-size: 22px;
   font-weight: 700;
   color: #1b3b6f;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  border-left: 4px solid #1260a8;
-  padding: 7px 0 7px 13px;
+  border-left: 5px solid #1260a8;
+  padding: 8px 0 8px 14px;
   line-height: 1.2;
 }
 
@@ -272,16 +272,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
+  min-width: 26px;
+  height: 26px;
   background: #1260a8;
   color: #fff;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   border-radius: 4px;
   flex-shrink: 0;
   line-height: 1;
-  padding: 0 5px;
+  padding: 0 6px;
 }
 
 /* ── TABLAS ─────────────────────────────── */
@@ -290,7 +290,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: 4px 0 14px;
-  font-size: 15px;
+  font-size: 16px;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 1px 4px rgba(27,59,111,0.07);
@@ -302,10 +302,10 @@
 
 .report-content .data-table th {
   border: 1px solid #c8d6ee;
-  padding: 9px 14px;
+  padding: 10px 15px;
   text-align: left;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   color: #1b3b6f;
   white-space: normal;
   vertical-align: middle;
@@ -314,10 +314,10 @@
 
 .report-content .data-table td {
   border: 1px solid #e5ecf8;
-  padding: 8px 14px;
+  padding: 9px 15px;
   text-align: right;
   color: #1f2d3d;
-  font-size: 15px;
+  font-size: 16px;
   vertical-align: middle;
   line-height: 1.35;
 }
@@ -366,7 +366,7 @@
 
 .report-content .data-table tr.rpt-row-grupo td {
   background: #f0f4fb;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: #1260a8;
   text-transform: uppercase;
@@ -376,7 +376,7 @@
 
 .report-content .data-table tr.rpt-row-grand td {
   background: linear-gradient(90deg, #dce8fa, #e8f4fd);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   color: #1b3b6f;
   border-top: 2px solid #1260a8;
@@ -564,13 +564,15 @@
 @media print {
   @page {
     size: A4 portrait;
-    margin: 14mm 16mm;
+    margin: 8mm 10mm;
   }
 
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     color-adjust: exact;
+    font-size: 12px;
+    line-height: 1.45;
   }
 
   .report-content {
@@ -578,65 +580,116 @@
     line-height: 1.45;
   }
 
+  /* Header: pequeño bloque crítico, proteger de corte */
   .report-content .rpt-header {
     box-shadow: none;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     break-inside: avoid;
     page-break-inside: avoid;
+    margin-bottom: 14px;
   }
 
+  /* Título de sección: mantener pegado a su contenido */
   .report-content .rpt-section-title {
-    font-size: 12px;
-    margin: 16px 0 6px;
+    font-size: 11px;
+    margin: 12px 0 5px;
+    padding: 5px 0 5px 10px;
+    border-left-width: 4px;
     break-after: avoid;
     page-break-after: avoid;
   }
 
+  .report-content .rpt-section-num {
+    font-size: 10px;
+    min-width: 18px;
+    height: 18px;
+  }
+
+  /* Tablas: flujo libre entre páginas (break-inside: auto)
+     Solo las FILAS individuales están protegidas de ser cortadas */
   .report-content .data-table {
     font-size: 11px;
     box-shadow: none;
-    break-inside: avoid;
-    page-break-inside: avoid;
+    margin: 2px 0 10px;
+    break-inside: auto;
+    page-break-inside: auto;
+    orphans: 3;
+    widows: 3;
   }
 
   .report-content .data-table th {
     font-size: 10px;
-    padding: 6px 10px;
+    padding: 5px 9px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
   .report-content .data-table td {
     font-size: 11px;
-    padding: 5px 10px;
+    padding: 4px 9px;
   }
 
-  .report-content .rpt-kpi-row {
+  /* FILAS: proteger de corte en mitad de una fila */
+  .report-content .data-table tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* El thead se repite en cada página automáticamente */
+  .report-content .data-table thead {
+    display: table-header-group;
+  }
+
+  /* KPIs, fuel box y horómetros: flujo libre si son grandes */
+  .report-content .rpt-kpi-row {
+    break-inside: auto;
+    page-break-inside: auto;
   }
 
   .report-content .rpt-kpi-big {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .report-content .rpt-fuel-box {
-    break-inside: avoid;
-    page-break-inside: avoid;
+    break-inside: auto;
+    page-break-inside: auto;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
+  /* Deshabilitar hover en impresión */
   .report-content .data-table tbody tr:hover {
     background: transparent;
   }
 
+  /* Garantizar colores en fondos de tabla */
   .report-content .data-table thead tr,
+  .report-content .data-table tbody tr:nth-child(even),
   .report-content .data-table tr.rpt-row-total td,
-  .report-content .data-table tr.rpt-row-grand td {
+  .report-content .data-table tr.rpt-row-grupo td,
+  .report-content .data-table tr.rpt-row-grand td,
+  .report-content .rpt-kpi-card,
+  .report-content .rpt-header-body,
+  .report-content .rpt-header-stripe {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* Observaciones: texto compacto en impresión */
+  .report-content .rpt-obs {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  /* KPI inline */
+  .report-content .rpt-kpi-inline {
+    font-size: 12px;
+    margin: 3px 0 7px;
+  }
+
+  .report-content .rpt-muted {
+    font-size: 9.5px;
   }
 }
 
