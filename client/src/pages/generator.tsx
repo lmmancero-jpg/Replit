@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { FileDown, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
 import { useFileStore } from "@/lib/fileStore";
+import { openPrintWindow } from "@/lib/printPDF";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -139,8 +140,12 @@ export default function Generator() {
       URL.revokeObjectURL(url);
       toast({ title: "PDF generado", description: "El archivo se está descargando." });
     } catch (err) {
-      console.error("PDF export error:", err);
-      toast({ title: "Error al generar PDF", description: "Intenta de nuevo.", variant: "destructive" });
+      console.warn("Backend PDF no disponible, usando impresión del navegador:", err);
+      openPrintWindow(generatedHtml, filename.replace(".pdf", ""));
+      toast({
+        title: "Ventana de impresión abierta",
+        description: 'Selecciona "Guardar como PDF" en el diálogo de impresión.',
+      });
     }
   };
 
