@@ -1,4 +1,4 @@
-import { BarChart3, History, Settings, Zap } from "lucide-react";
+import { BarChart3, Settings, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -18,7 +18,6 @@ export function AppSidebar() {
 
   const navItems = [
     { title: "Generador", url: "/", icon: Zap },
-    { title: "Historial", url: "/history", icon: History },
     { title: "Métricas", url: "/metrics", icon: BarChart3, disabled: false },
     { title: "Ajustes", url: "#", icon: Settings, disabled: true },
   ];

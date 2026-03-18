@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
-import { FileDown, Save, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
+import { FileDown, Calendar, FileSpreadsheet, Activity, Factory, FileText, AlertCircle, Settings, CheckCircle2 } from "lucide-react";
 import { useFileStore } from "@/lib/fileStore";
 
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Layout } from "@/components/layout";
-import { useCreateReport } from "@/hooks/use-reports";
 import {
   generarInformeDiario,
   generarInformeMensual,
@@ -37,7 +36,6 @@ type GeneratorValues = z.infer<typeof generatorSchema>;
 
 export default function Generator() {
   const { toast } = useToast();
-  const createReport = useCreateReport();
   const { prodFile, aforoFile, fileNameProd, fileNameAforo, setProdEntry, setAforoEntry } = useFileStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedHtml, setGeneratedHtml] = useState<string | null>(null);
@@ -114,29 +112,6 @@ export default function Generator() {
       setIsGenerating(false);
     }
   }, [form, prodFile, toast]);
-
-  const handleSave = () => {
-    if (!generatedHtml) return;
-    const data = form.getValues();
-    const date = currentReportType === "diario" ? data.reportDate : data.reportMonth;
-
-    createReport.mutate({
-      title: `${currentReportType === "diario" ? "Informe Diario" : currentReportType === "mensual" ? "Informe Mensual" : "Facturación"} – ${date}`,
-      reportType: currentReportType,
-      date,
-      content: generatedHtml,
-    }, {
-      onSuccess: () => {
-        toast({
-          title: "Guardado exitoso",
-          description: "El informe ha sido almacenado en el historial.",
-        });
-      },
-      onError: () => {
-        toast({ title: "Error al guardar", description: "No se pudo guardar el informe.", variant: "destructive" });
-      },
-    });
-  };
 
   const handleExportPDF = async () => {
     if (!generatedHtml) return;
@@ -440,19 +415,6 @@ export default function Generator() {
               >
                 <FileDown className="w-3.5 h-3.5 mr-1" />
                 PDF
-              </Button>
-              <Button
-                data-testid="button-save-report"
-                size="sm"
-                onClick={handleSave}
-                disabled={!generatedHtml || createReport.isPending}
-              >
-                {createReport.isPending ? "Guardando..." : (
-                  <>
-                    <Save className="w-3.5 h-3.5 mr-1" />
-                    Guardar
-                  </>
-                )}
               </Button>
             </div>
           </div>
