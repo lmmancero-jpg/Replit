@@ -20,6 +20,10 @@ export interface MonthlyProductionSummary {
   ultimoDia: number;
   textoPeriodo: string;
   diasMes: number;
+  hfoGal: number;
+  doGal: number;
+  kWhHFO: number;
+  kWhDO: number;
 }
 
 export interface InvoiceCategorySummary {
@@ -45,6 +49,7 @@ export function getMonthlyProductionSummary(
   const { rows } = getProdSheetAndRows(wbProd, fechaCorte);
 
   let lan = 0, gra = 0, aux = 0, ultimoDia = 0;
+  let hfoGal = 0, doGal = 0;
 
   for (const r of rows) {
     const key = excelDateKey(r[CONFIG.COL_FECHA]);
@@ -56,6 +61,8 @@ export function getMonthlyProductionSummary(
     lan += posNum(r[CONFIG.COL_LANEC_PARCIAL_KWH]);
     gra += posNum(r[CONFIG.COL_GRACA_PARCIAL_KWH]);
     aux += posNum(r[CONFIG.COL_AUX_KWH]);
+    hfoGal += posNum(r[CONFIG.COL_HFO_GAL]);
+    doGal  += posNum(r[CONFIG.COL_DO_GAL]);
   }
 
   const tot_cli = lan + gra;
@@ -64,6 +71,10 @@ export function getMonthlyProductionSummary(
   const lan_fact = lan + aux_lan;
   const gra_fact = gra + aux_gra;
   const tot_gen = lan_fact + gra_fact;
+
+  const fuelTotal = hfoGal + doGal;
+  const kWhHFO = fuelTotal > 0 ? tot_gen * (hfoGal / fuelTotal) : 0;
+  const kWhDO  = fuelTotal > 0 ? tot_gen * (doGal  / fuelTotal) : 0;
 
   const mesNombre = getMesNombreES(monthIndex);
   const textoPeriodo = ultimoDia > 0
@@ -81,6 +92,10 @@ export function getMonthlyProductionSummary(
     ultimoDia,
     textoPeriodo,
     diasMes,
+    hfoGal,
+    doGal,
+    kWhHFO,
+    kWhDO,
   };
 }
 
@@ -340,7 +355,7 @@ export function buildRealBillingReport(params: {
 
   const prod = getMonthlyProductionSummary(wbProd, mesStr);
   const { lan_fact, gra_fact, tot_gen, lanecKwh: lan, gracaKwh: gra, auxKwh: aux,
-    textoPeriodo, diasMes } = prod;
+    textoPeriodo, diasMes, hfoGal, doGal, kWhHFO, kWhDO } = prod;
   const tot_cli = lan + gra;
 
   const fixed = calcFixed(diasMes, diasFallaU1, diasFallaU2);
@@ -388,32 +403,63 @@ export function buildRealBillingReport(params: {
   const { hfoTotal, dieselTotal, transporteTotal } = fuelBreakdown;
   const combTotal = totalByCategory["combustible_transporte"] ?? 0;
 
+  const cvHFO    = kWhHFO   > 0 ? hfoTotal    / kWhHFO   : 0;
+  const cvDiesel = kWhDO    > 0 ? dieselTotal  / kWhDO    : 0;
+  const cvComb   = tot_gen  > 0 ? combTotal    / tot_gen  : 0;
+  const hasFuelAttrib = (hfoGal + doGal) > 0;
+
   html += seccion(2, "Facturas del Período por Rubro");
   html += `<table class="data-table">
-<thead><tr><th>Rubro</th><th>Total facturado [USD]</th><th>CV real [USD/kWh]</th></tr></thead>
+<thead><tr><th>Rubro</th><th class="num">kWh atribuidos</th><th class="num">Total facturado [USD]</th><th class="num">CV real [USD/kWh]</th></tr></thead>
 <tbody>`;
 
   for (const cat of INVOICE_CATEGORIES) {
     const label = INVOICE_CATEGORY_LABELS[cat as InvoiceCategory] ?? cat;
     if (cat === "combustible_transporte") {
-      const cvComb = tot_gen > 0 ? combTotal / tot_gen : 0;
-      html += `<tr class="rpt-row-grupo"><td class="label" colspan="3">${label}</td></tr>`;
+      html += `<tr class="rpt-row-grupo"><td class="label" colspan="4">${label}</td></tr>`;
       if (hfoTotal > 0 || dieselTotal > 0 || transporteTotal > 0) {
-        if (hfoTotal > 0)       html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.hfo}</td><td class="num">$ ${fmt(hfoTotal)}</td><td class="num">${fmt(tot_gen > 0 ? hfoTotal / tot_gen : 0, 4)}</td></tr>`;
-        if (dieselTotal > 0)    html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.diesel_2}</td><td class="num">$ ${fmt(dieselTotal)}</td><td class="num">${fmt(tot_gen > 0 ? dieselTotal / tot_gen : 0, 4)}</td></tr>`;
-        if (transporteTotal > 0) html += `<tr><td class="label" style="padding-left:1.5em">↳ Transporte (sin IVA)</td><td class="num">$ ${fmt(transporteTotal)}</td><td class="num">${fmt(tot_gen > 0 ? transporteTotal / tot_gen : 0, 4)}</td></tr>`;
+        if (hfoTotal > 0)
+          html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.hfo}</td>
+            <td class="num">${hasFuelAttrib && kWhHFO > 0 ? fmt(kWhHFO, 0) : "—"}</td>
+            <td class="num">$ ${fmt(hfoTotal)}</td>
+            <td class="num ${cvHFO > 0 ? "hi" : ""}">${cvHFO > 0 ? fmt(cvHFO, 4) : "—"}</td></tr>`;
+        if (dieselTotal > 0)
+          html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.diesel_2}</td>
+            <td class="num">${hasFuelAttrib && kWhDO > 0 ? fmt(kWhDO, 0) : "—"}</td>
+            <td class="num">$ ${fmt(dieselTotal)}</td>
+            <td class="num ${cvDiesel > 0 ? "hi" : ""}">${cvDiesel > 0 ? fmt(cvDiesel, 4) : "—"}</td></tr>`;
+        if (transporteTotal > 0)
+          html += `<tr><td class="label" style="padding-left:1.5em">↳ Transporte (sin IVA)</td>
+            <td class="num">—</td>
+            <td class="num">$ ${fmt(transporteTotal)}</td>
+            <td class="num">—</td></tr>`;
       }
-      html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal Combustible + Transporte</strong></td><td class="num"><strong>$ ${fmt(combTotal)}</strong></td><td class="num"><strong>${fmt(cvComb, 4)}</strong></td></tr>`;
+      html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal Combustible + Transporte</strong></td>
+        <td class="num"><strong>${fmt(tot_gen, 0)}</strong></td>
+        <td class="num"><strong>$ ${fmt(combTotal)}</strong></td>
+        <td class="num"><strong>${fmt(cvComb, 4)}</strong></td></tr>`;
     } else {
-      html += `<tr><td class="label">${label}</td><td class="num">$ ${fmt(totalByCategory[cat])}</td><td class="num">${fmt(cvRealByCategory[cat], 4)}</td></tr>`;
+      html += `<tr><td class="label">${label}</td>
+        <td class="num">—</td>
+        <td class="num">$ ${fmt(totalByCategory[cat])}</td>
+        <td class="num">${fmt(cvRealByCategory[cat], 4)}</td></tr>`;
     }
   }
 
-  html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal rubros facturados</strong></td><td class="num"><strong>$ ${fmt(costoVarRealTotal)}</strong></td><td class="num"><strong>${fmt(tot_gen > 0 ? costoVarRealTotal / tot_gen : 0, 4)}</strong></td></tr>
-<tr class="rpt-row-grupo"><td class="label" colspan="3">Margen variable (contractual fijo)</td></tr>
-<tr><td class="label">Margen Variable</td><td class="num">$ ${fmt(margenTotal)}</td><td class="num">${fmt(margenVariable, 4)}</td></tr>
-<tr class="rpt-row-grand"><td class="label"><strong>CV Total Real (incluye margen)</strong></td><td class="num"><strong>$ ${fmt(costoVarRealTotalConMargen)}</strong></td><td class="num"><strong>${fmt(costoVarRealCvTotal, 4)} USD/kWh</strong></td></tr>
-</tbody></table>`;
+  html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal rubros facturados</strong></td>
+    <td></td>
+    <td class="num"><strong>$ ${fmt(costoVarRealTotal)}</strong></td>
+    <td class="num"><strong>${fmt(tot_gen > 0 ? costoVarRealTotal / tot_gen : 0, 4)}</strong></td></tr>
+<tr class="rpt-row-grupo"><td class="label" colspan="4">Margen variable (contractual fijo)</td></tr>
+<tr><td class="label">Margen Variable</td><td></td><td class="num">$ ${fmt(margenTotal)}</td><td class="num">${fmt(margenVariable, 4)}</td></tr>
+<tr class="rpt-row-grand"><td class="label"><strong>CV Total Real (incluye margen)</strong></td><td></td>
+  <td class="num"><strong>$ ${fmt(costoVarRealTotalConMargen)}</strong></td>
+  <td class="num"><strong>${fmt(costoVarRealCvTotal, 4)} USD/kWh</strong></td></tr>
+</tbody></table>
+${hasFuelAttrib
+  ? `<p class="rpt-muted">* kWh atribuidos por combustible calculados proporcionalmente al consumo del período: HFO ${fmt(hfoGal, 0)} gal (${fmt(hfoGal / (hfoGal + doGal) * 100, 1)}%), Diesel 2 ${fmt(doGal, 0)} gal (${fmt(doGal / (hfoGal + doGal) * 100, 1)}%).</p>`
+  : `<div class="rpt-notice rpt-notice-warn">⚠ Sin datos de consumo de galones — los kWh atribuidos por combustible no están disponibles.</div>`
+}`;
 
   html += seccion(3, "Costos Fijos");
   html += `<table class="data-table">
