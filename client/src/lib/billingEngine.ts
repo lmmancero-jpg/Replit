@@ -5,7 +5,7 @@ import {
   posNum, fmt, excelDateKey, getDaysInMonth, getMesNombreES,
   getProdSheetAndRows, rptHeader, seccion,
 } from "./reportEngine";
-import { INVOICE_CATEGORIES, INVOICE_CATEGORY_LABELS, type Invoice, type InvoiceCategory } from "@shared/schema";
+import { INVOICE_CATEGORIES, INVOICE_CATEGORY_LABELS, FUEL_TYPE_LABELS, type Invoice, type InvoiceCategory } from "@shared/schema";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -291,6 +291,41 @@ export function buildClientBillingReport(params: {
   return html;
 }
 
+// ── Desglose de combustible HFO / Diesel ──────────────────────────────────────
+
+export interface FuelBreakdown {
+  hfoTotal: number;
+  dieselTotal: number;
+  transporteTotal: number;
+}
+
+export function parseFuelBreakdown(invoiceList: Invoice[]): FuelBreakdown {
+  let hfoTotal = 0, dieselTotal = 0, transporteTotal = 0;
+  for (const inv of invoiceList) {
+    if (inv.category !== "combustible_transporte") continue;
+    try {
+      if (inv.lineItems && inv.lineItems !== "[]") {
+        const items = JSON.parse(inv.lineItems) as Array<Record<string, unknown>>;
+        for (const item of items) {
+          const t = parseFloat(String(item.total ?? "0"));
+          if (item.isTransporte) {
+            transporteTotal += t;
+          } else if (item.fuelType === "diesel_2") {
+            dieselTotal += t;
+          } else {
+            hfoTotal += t;
+          }
+        }
+      } else {
+        hfoTotal += parseFloat(inv.total ?? "0");
+      }
+    } catch {
+      hfoTotal += parseFloat(inv.total ?? "0");
+    }
+  }
+  return { hfoTotal, dieselTotal, transporteTotal };
+}
+
 // ── Informe real ──────────────────────────────────────────────────────────────
 
 export function buildRealBillingReport(params: {
@@ -349,14 +384,31 @@ export function buildRealBillingReport(params: {
 <tr class="rpt-row-total"><td class="label"><strong>TOTAL</strong></td><td class="num"><strong>${fmt(tot_cli)}</strong></td><td class="num"><strong>${fmt(aux)}</strong></td><td class="num hi"><strong>${fmt(tot_gen)}</strong></td></tr>
 </tbody></table>`;
 
+  const fuelBreakdown = parseFuelBreakdown(invoiceList);
+  const { hfoTotal, dieselTotal, transporteTotal } = fuelBreakdown;
+  const combTotal = totalByCategory["combustible_transporte"] ?? 0;
+
   html += seccion(2, "Facturas del Período por Rubro");
   html += `<table class="data-table">
 <thead><tr><th>Rubro</th><th>Total facturado [USD]</th><th>CV real [USD/kWh]</th></tr></thead>
 <tbody>`;
+
   for (const cat of INVOICE_CATEGORIES) {
     const label = INVOICE_CATEGORY_LABELS[cat as InvoiceCategory] ?? cat;
-    html += `<tr><td class="label">${label}</td><td class="num">$ ${fmt(totalByCategory[cat])}</td><td class="num">${fmt(cvRealByCategory[cat], 4)}</td></tr>`;
+    if (cat === "combustible_transporte") {
+      const cvComb = tot_gen > 0 ? combTotal / tot_gen : 0;
+      html += `<tr class="rpt-row-grupo"><td class="label" colspan="3">${label}</td></tr>`;
+      if (hfoTotal > 0 || dieselTotal > 0 || transporteTotal > 0) {
+        if (hfoTotal > 0)       html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.hfo}</td><td class="num">$ ${fmt(hfoTotal)}</td><td class="num">${fmt(tot_gen > 0 ? hfoTotal / tot_gen : 0, 4)}</td></tr>`;
+        if (dieselTotal > 0)    html += `<tr><td class="label" style="padding-left:1.5em">↳ ${FUEL_TYPE_LABELS.diesel_2}</td><td class="num">$ ${fmt(dieselTotal)}</td><td class="num">${fmt(tot_gen > 0 ? dieselTotal / tot_gen : 0, 4)}</td></tr>`;
+        if (transporteTotal > 0) html += `<tr><td class="label" style="padding-left:1.5em">↳ Transporte (sin IVA)</td><td class="num">$ ${fmt(transporteTotal)}</td><td class="num">${fmt(tot_gen > 0 ? transporteTotal / tot_gen : 0, 4)}</td></tr>`;
+      }
+      html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal Combustible + Transporte</strong></td><td class="num"><strong>$ ${fmt(combTotal)}</strong></td><td class="num"><strong>${fmt(cvComb, 4)}</strong></td></tr>`;
+    } else {
+      html += `<tr><td class="label">${label}</td><td class="num">$ ${fmt(totalByCategory[cat])}</td><td class="num">${fmt(cvRealByCategory[cat], 4)}</td></tr>`;
+    }
   }
+
   html += `<tr class="rpt-row-total"><td class="label"><strong>Subtotal rubros facturados</strong></td><td class="num"><strong>$ ${fmt(costoVarRealTotal)}</strong></td><td class="num"><strong>${fmt(tot_gen > 0 ? costoVarRealTotal / tot_gen : 0, 4)}</strong></td></tr>
 <tr class="rpt-row-grupo"><td class="label" colspan="3">Margen variable (contractual fijo)</td></tr>
 <tr><td class="label">Margen Variable</td><td class="num">$ ${fmt(margenTotal)}</td><td class="num">${fmt(margenVariable, 4)}</td></tr>

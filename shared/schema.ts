@@ -40,6 +40,14 @@ export const INVOICE_CATEGORY_LABELS: Record<InvoiceCategory, string> = {
   servicios_auxiliares:   "Servicios Auxiliares",
 };
 
+export const FUEL_TYPES = ["hfo", "diesel_2"] as const;
+export type FuelType = typeof FUEL_TYPES[number];
+
+export const FUEL_TYPE_LABELS: Record<FuelType, string> = {
+  hfo:      "HFO (Bunker)",
+  diesel_2: "Diesel 2",
+};
+
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   period: text("period").notNull(),

@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useFileStore } from "@/lib/fileStore";
-import { INVOICE_CATEGORIES, INVOICE_CATEGORY_LABELS, type InvoiceCategory, type Invoice } from "@shared/schema";
+import { INVOICE_CATEGORIES, INVOICE_CATEGORY_LABELS, FUEL_TYPE_LABELS, type InvoiceCategory, type FuelType, type Invoice } from "@shared/schema";
 import { useInvoices, useInvoiceSummary, useCreateInvoice, useUpdateInvoice, useDeleteInvoice } from "@/hooks/use-invoices";
 import { exportInvoicesExcel } from "@/lib/invoiceExcel";
 import { getMonthlyProductionSummary } from "@/lib/billingEngine";
@@ -48,6 +48,7 @@ const lineItemSchema = z.object({
   description: z.string().default(""),
   subtotal: z.coerce.number().min(0, "Debe ser ≥ 0"),
   isTransporte: z.boolean().default(false),
+  fuelType: z.enum(["hfo", "diesel_2"]).nullable().optional(),
 });
 
 const invoiceFormSchema = z.object({
@@ -65,6 +66,7 @@ interface LineItemComputed {
   description: string;
   subtotal: number;
   isTransporte: boolean;
+  fuelType?: FuelType | null;
   iva: number;
   total: number;
 }
@@ -86,6 +88,7 @@ function parseLineItems(inv: Invoice): LineItemComputed[] {
           description: String(i.description ?? ""),
           subtotal: parseFloat(String(i.subtotal ?? "0")),
           isTransporte: !!i.isTransporte,
+          fuelType: (i.fuelType as FuelType | null | undefined) ?? null,
           iva: parseFloat(String(i.iva ?? "0")),
           total: parseFloat(String(i.total ?? "0")),
         }));
@@ -96,6 +99,7 @@ function parseLineItems(inv: Invoice): LineItemComputed[] {
     description: inv.description ?? "",
     subtotal: parseFloat(inv.subtotal ?? "0"),
     isTransporte: false,
+    fuelType: null,
     iva: parseFloat(inv.iva ?? "0"),
     total: parseFloat(inv.total ?? "0"),
   }];
@@ -246,6 +250,34 @@ function LineItemRow({
           )}
         </div>
       </div>
+
+      {/* Tipo de combustible — solo para combustible_transporte y no transporte */}
+      {category === "combustible_transporte" && !isTransporteVal && (
+        <FormField
+          control={control}
+          name={`items.${index}.fuelType`}
+          render={({ field }) => (
+            <FormItem className="space-y-1">
+              <FormLabel className="text-xs font-semibold text-primary">Tipo de combustible</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value ?? "hfo"}
+              >
+                <FormControl>
+                  <SelectTrigger data-testid={`select-fuel-type-${index}`} className="text-sm h-8 border-primary/30">
+                    <SelectValue placeholder="Selecciona tipo" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="hfo">⛽ HFO (Bunker)</SelectItem>
+                  <SelectItem value="diesel_2">🔵 Diesel 2</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
 
       <FormField
         control={control}
@@ -424,6 +456,7 @@ export default function InvoicesPage() {
         description: i.description,
         subtotal: i.subtotal,
         isTransporte: i.isTransporte,
+        fuelType: i.fuelType ?? null,
       })),
     });
   }
@@ -433,7 +466,14 @@ export default function InvoicesPage() {
       const sub = Number(item.subtotal) || 0;
       const iva = calcIva(sub, !!item.isTransporte);
       const total = calcTotal(sub, iva);
-      return { description: item.description ?? "", subtotal: sub, isTransporte: !!item.isTransporte, iva, total };
+      return {
+        description: item.description ?? "",
+        subtotal: sub,
+        isTransporte: !!item.isTransporte,
+        fuelType: item.isTransporte ? null : (item.fuelType ?? null),
+        iva,
+        total,
+      };
     });
     const grandSub = computed.reduce((s, i) => s + i.subtotal, 0);
     const grandIva = computed.reduce((s, i) => s + i.iva, 0);
@@ -764,8 +804,12 @@ export default function InvoicesPage() {
                               {hasMulti && items.map((item, iIdx) => (
                                 <tr key={`${inv.id}-item-${iIdx}`} className="border-b border-border/20 bg-muted/5">
                                   <td colSpan={4} className="px-3 py-1 pl-8 text-[10px] text-muted-foreground">
-                                    ↳ {item.isTransporte ? <span className="text-amber-600"><Truck className="w-2.5 h-2.5 inline mr-0.5" />Transporte</span> : null}
-                                    {item.description ? (item.isTransporte ? " – " : "") + item.description : ""}
+                                    ↳ {item.isTransporte
+                                        ? <span className="text-amber-600"><Truck className="w-2.5 h-2.5 inline mr-0.5" />Transporte</span>
+                                        : item.fuelType
+                                          ? <span className="text-blue-700 font-medium">{FUEL_TYPE_LABELS[item.fuelType]}</span>
+                                          : null}
+                                    {item.description ? " – " + item.description : ""}
                                   </td>
                                   <td className="px-3 py-1 text-right text-[10px] font-mono text-muted-foreground">$ {fmtMoney(item.subtotal)}</td>
                                   <td className="px-3 py-1 text-right text-[10px] font-mono text-muted-foreground">
