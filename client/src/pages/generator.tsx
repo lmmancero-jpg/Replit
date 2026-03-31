@@ -17,7 +17,6 @@ import { Layout } from "@/components/layout";
 import {
   generarInformeDiario,
   generarInformeMensual,
-  generarInformeFacturacion,
 } from "@/lib/reportEngine";
 
 const generatorSchema = z.object({
@@ -25,11 +24,6 @@ const generatorSchema = z.object({
   reportMonth: z.string().min(1, "El mes es requerido"),
   u1Downtime: z.coerce.number().min(0).max(31).default(0),
   u2Downtime: z.coerce.number().min(0).max(31).default(0),
-  costoCombTransporte: z.coerce.number().min(0).default(0.1153),
-  hfoPriceP1: z.coerce.number().min(0).default(0),
-  hfoPriceP2: z.coerce.number().min(0).default(0),
-  dieselPriceP1: z.coerce.number().min(0).default(0),
-  dieselPriceP2: z.coerce.number().min(0).default(0),
   observations: z.string().optional(),
 });
 
@@ -50,11 +44,6 @@ export default function Generator() {
       reportMonth: format(new Date(), "yyyy-MM"),
       u1Downtime: 0,
       u2Downtime: 0,
-      costoCombTransporte: 0.1153,
-      hfoPriceP1: 0,
-      hfoPriceP2: 0,
-      dieselPriceP1: 0,
-      dieselPriceP2: 0,
       observations: "",
     },
   });
@@ -67,38 +56,26 @@ export default function Generator() {
       reader.readAsArrayBuffer(file);
     });
 
-  const handleGenerate = useCallback(async (type: "diario" | "mensual" | "facturacion") => {
+  const handleGenerate = useCallback(async (type: "diario" | "mensual") => {
     const data = form.getValues();
     setIsGenerating(true);
     setCurrentReportType(type);
+
+    // Persistir indisponibilidad para que Facturación pueda leerla
+    localStorage.setItem("nexus_u1dt", String(data.u1Downtime));
+    localStorage.setItem("nexus_u2dt", String(data.u2Downtime));
 
     try {
       if (!prodFile) throw new Error("Carga el archivo de producción (.xlsx).");
       const prodBuffer = await readFileAsArrayBuffer(prodFile);
 
       let html = "";
-
       if (type === "diario") {
         if (!data.reportDate) throw new Error("Selecciona la fecha del informe diario.");
         html = generarInformeDiario(prodBuffer, data.reportDate, data.observations || "");
-      } else if (type === "mensual") {
+      } else {
         if (!data.reportMonth) throw new Error("Selecciona el mes del informe mensual.");
         html = generarInformeMensual(prodBuffer, data.reportMonth);
-      } else if (type === "facturacion") {
-        if (!data.reportMonth) throw new Error("Selecciona el mes para la facturación.");
-        html = generarInformeFacturacion(
-          prodBuffer,
-          data.reportMonth,
-          data.u1Downtime,
-          data.u2Downtime,
-          data.costoCombTransporte,
-          {
-            hfoPriceP1: Number(data.hfoPriceP1) || 0,
-            hfoPriceP2: Number(data.hfoPriceP2) || 0,
-            dieselPriceP1: Number(data.dieselPriceP1) || 0,
-            dieselPriceP2: Number(data.dieselPriceP2) || 0,
-          }
-        );
       }
 
       setGeneratedHtml(html);
@@ -118,10 +95,7 @@ export default function Generator() {
     if (!generatedHtml) return;
     const data = form.getValues();
     const date = currentReportType === "diario" ? data.reportDate : data.reportMonth;
-    const typeLabel =
-      currentReportType === "facturacion" ? "Facturacion"
-      : currentReportType === "mensual"   ? "Reporte_Mensual"
-      : "Reporte_Diario";
+    const typeLabel = currentReportType === "mensual" ? "Reporte_Mensual" : "Reporte_Diario";
     const filename = `${typeLabel}_ElMorro_${date}.pdf`;
 
     try {
@@ -208,7 +182,16 @@ export default function Generator() {
                         <FormItem>
                           <FormLabel className="text-xs">Días indisp. U1</FormLabel>
                           <FormControl>
-                            <Input type="number" min="0" className="text-sm h-8" {...field} />
+                            <Input
+                              data-testid="input-u1-downtime"
+                              type="number" min="0"
+                              className="text-sm h-8"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                localStorage.setItem("nexus_u1dt", e.target.value);
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -221,80 +204,21 @@ export default function Generator() {
                         <FormItem>
                           <FormLabel className="text-xs">Días indisp. U2</FormLabel>
                           <FormControl>
-                            <Input type="number" min="0" className="text-sm h-8" {...field} />
+                            <Input
+                              data-testid="input-u2-downtime"
+                              type="number" min="0"
+                              className="text-sm h-8"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                localStorage.setItem("nexus_u2dt", e.target.value);
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="costoCombTransporte"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">
-                          Costo variable Combustible + Transporte <span className="text-muted-foreground">(USD/kWh)</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            data-testid="input-costo-comb-transporte"
-                            type="number"
-                            min="0"
-                            step="0.0001"
-                            className="text-sm h-8 font-mono"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Precios de combustible — Sección 2.3 */}
-                  <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 space-y-2">
-                    <p className="text-xs font-semibold text-amber-800">
-                      Precios combustible — Sección 2.3 <span className="font-normal text-amber-600">(con IVA, USD/gal)</span>
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <FormField control={form.control} name="hfoPriceP1" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-amber-700">HFO P1 (días 1–11)</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-hfo-p1" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="hfoPriceP2" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-amber-700">HFO P2 (días 12–fin)</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-hfo-p2" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="dieselPriceP1" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-amber-700">Diésel P1 (días 1–11)</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-diesel-p1" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="dieselPriceP2" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs text-amber-700">Diésel P2 (días 12–fin)</FormLabel>
-                          <FormControl>
-                            <Input data-testid="input-diesel-p2" type="number" min="0" step="0.0001" className="text-sm h-8 font-mono" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
                   </div>
 
                   <div className="rounded-md border border-border/50 bg-muted/30 p-3 space-y-3">
@@ -336,7 +260,7 @@ export default function Generator() {
                     </div>
                     {(fileNameProd || fileNameAforo) && (
                       <p className="text-xs text-muted-foreground border-t border-border/40 pt-2 mt-1">
-                        Los archivos cargados aquí también están disponibles en Métricas.
+                        Los archivos cargados aquí también están disponibles en Métricas y Facturación.
                       </p>
                     )}
                   </div>
@@ -377,7 +301,6 @@ export default function Generator() {
               {[
                 { type: "diario" as const, label: "Informe diario", desc: "Datos del día seleccionado" },
                 { type: "mensual" as const, label: "Informe mensual", desc: "Acumulados del mes" },
-                { type: "facturacion" as const, label: "Informe facturación", desc: "Costos y energía facturable" },
               ].map(({ type, label, desc }) => (
                 <Button
                   key={type}
@@ -404,7 +327,6 @@ export default function Generator() {
 
         {/* Columna derecha – previsualización */}
         <div className="flex-1 flex flex-col min-h-[600px] xl:min-h-0 rounded-lg border border-border/60 overflow-hidden shadow-inner">
-          {/* Barra superior */}
           <div className="h-12 bg-card border-b border-border/60 flex items-center justify-between px-4 shrink-0">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <span className={`inline-flex h-2 w-2 rounded-full ${generatedHtml ? "bg-green-500" : "bg-muted-foreground/40"}`} />
@@ -424,7 +346,6 @@ export default function Generator() {
             </div>
           </div>
 
-          {/* Área de contenido */}
           <div
             className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-900/50 p-6"
             ref={previewRef}

@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import puppeteer from "puppeteer-core";
 import { execSync } from "child_process";
+import { insertInvoiceSchema } from "@shared/schema";
 
 function findChromiumExecutable(): string {
   try {
@@ -469,6 +470,103 @@ export async function registerRoutes(
       res.status(500).json({ error: "PDF generation failed", detail: String(err) });
     } finally {
       if (browser) await browser.close();
+    }
+  });
+
+  // ── Reports ────────────────────────────────────────────────────────────────
+
+  app.get("/api/reports", async (_req, res) => {
+    try {
+      const data = await storage.getReports();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.post("/api/reports", async (req, res) => {
+    const parsed = api.reports.create.input.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+    }
+    try {
+      const report = await storage.createReport(parsed.data);
+      res.status(201).json(report);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.delete("/api/reports/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+    try {
+      await storage.deleteReport(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  // ── Invoices ───────────────────────────────────────────────────────────────
+
+  app.get("/api/invoices/summary", async (req, res) => {
+    const period = req.query.period as string | undefined;
+    if (!period) return res.status(400).json({ message: "Parámetro period requerido" });
+    try {
+      const summary = await storage.getInvoiceSummary(period);
+      res.json(summary);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.get("/api/invoices", async (req, res) => {
+    const period = req.query.period as string | undefined;
+    try {
+      const data = await storage.getInvoices(period);
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.post("/api/invoices", async (req, res) => {
+    const parsed = insertInvoiceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+    }
+    try {
+      const inv = await storage.createInvoice(parsed.data);
+      res.status(201).json(inv);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.put("/api/invoices/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+    const parsed = insertInvoiceSchema.partial().safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Datos inválidos", errors: parsed.error.flatten() });
+    }
+    try {
+      const inv = await storage.updateInvoice(id, parsed.data);
+      res.json(inv);
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
+    }
+  });
+
+  app.delete("/api/invoices/:id", async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return res.status(400).json({ message: "ID inválido" });
+    try {
+      await storage.deleteInvoice(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: String(err) });
     }
   });
 

@@ -8,12 +8,16 @@ import NotFound from "@/pages/not-found";
 
 import Generator from "./pages/generator";
 import Metrics   from "./pages/metrics";
+import InvoicesPage from "./pages/invoices";
+import BillingPage  from "./pages/billing";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/"        component={Generator} />
-      <Route path="/metrics" component={Metrics} />
+      <Route path="/"          component={Generator} />
+      <Route path="/invoices"  component={InvoicesPage} />
+      <Route path="/billing"   component={BillingPage} />
+      <Route path="/metrics"   component={Metrics} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 
 // === CONFIGURACIÓN DE COLUMNAS (0 = A, 1 = B, ...) ===
-const CONFIG = {
+export const CONFIG = {
   COL_FECHA: 1,
   COL_HG1_LANEC_INI: 2,
   COL_HG1_LANEC_FIN: 3,
@@ -24,7 +24,7 @@ const HORO_BASE_U2 = 21041;
 const OBJ_MTO_HORAS_U1 = 8000;
 const OBJ_MTO_HORAS_U2 = 6000;
 
-const COSTOS_VARIABLES: Record<string, number> = {
+export const COSTOS_VARIABLES: Record<string, number> = {
   combustible_transporte: 0.1153,
   lubricantes_quimicos:  0.0182,
   agua_insumos:          0.0070,
@@ -35,14 +35,14 @@ const COSTOS_VARIABLES: Record<string, number> = {
 };
 
 const COSTO_VARIABLE_TOTAL = Object.values(COSTOS_VARIABLES).reduce((a, b) => a + b, 0);
-const COSTO_FIJO_MENSUAL_POR_UNIDAD = 30720;
-const CBMT_U1_MENSUAL = 17664.00; // 2400 kW × 7.36 USD/kW-mes (Cargo Base por Mantenimiento y Transmisión U1)
+export const COSTO_FIJO_MENSUAL_POR_UNIDAD = 30720;
+export const CBMT_U1_MENSUAL = 17664.00; // 2400 kW × 7.36 USD/kW-mes
 
 const P_INST_TOTAL = 5100;
 const P_INST_EFECTIVA = 0.85 * P_INST_TOTAL;
-const P_CONTR_LANEC = 3800;
-const P_CONTR_GRACA = 1000;
-const P_CONTR_TOT = P_CONTR_LANEC + P_CONTR_GRACA;
+export const P_CONTR_LANEC = 3800;
+export const P_CONTR_GRACA = 1000;
+export const P_CONTR_TOT = P_CONTR_LANEC + P_CONTR_GRACA;
 
 // ========= UTILIDADES =========
 
@@ -57,12 +57,12 @@ function num(v: unknown): number {
   return 0;
 }
 
-function posNum(v: unknown): number {
+export function posNum(v: unknown): number {
   const n = num(v);
   return n < 0 ? 0 : n;
 }
 
-function fmt(v: number | unknown, dec = 2): string {
+export function fmt(v: number | unknown, dec = 2): string {
   return Number(v).toLocaleString("es-EC", {
     minimumFractionDigits: dec,
     maximumFractionDigits: dec,
@@ -78,7 +78,7 @@ function jsDateKey(d: Date): string {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function excelDateKey(v: any): string | null {
+export function excelDateKey(v: any): string | null {
   if (v == null) return null;
   if (typeof v === "number") {
     const dc = XLSX.SSF.parse_date_code(v);
@@ -137,7 +137,7 @@ function parseFechaRobusta(v: unknown): Date | null {
   return null;
 }
 
-function getMesNombreES(monthIndex: number): string {
+export function getMesNombreES(monthIndex: number): string {
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
   return meses[monthIndex] || "";
 }
@@ -146,7 +146,7 @@ function getSheetNameFromDate(fechaJS: Date): string {
   return `${getMesNombreES(fechaJS.getMonth())} ${fechaJS.getFullYear()}`;
 }
 
-function getDaysInMonth(year: number, monthIndex: number): number {
+export function getDaysInMonth(year: number, monthIndex: number): number {
   return new Date(year, monthIndex + 1, 0).getDate();
 }
 
@@ -197,7 +197,7 @@ function badgeEstado(estado: string): string {
 // ========= HELPERS HOJA =========
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getProdSheetAndRows(wbProd: XLSX.WorkBook, fechaJS: Date): { rows: any[][] } {
+export function getProdSheetAndRows(wbProd: XLSX.WorkBook, fechaJS: Date): { rows: any[][] } {
   const name = getSheetNameFromDate(fechaJS);
   const ws = wbProd.Sheets[name];
   if (ws) {
@@ -228,7 +228,7 @@ function findRowByDate(rows: any[][], fechaJS: Date): any[] | null {
 
 // ========= ENCABEZADO =========
 
-function rptHeader(tipo: string, subtitulo: string): string {
+export function rptHeader(tipo: string, subtitulo: string): string {
   // El bloque <style> se inyecta dentro del DOM del informe para garantizar que
   // html2canvas aplique vertical-align:middle en los estilos computados de cada
   // celda, independientemente del soporte de hojas externas durante la captura.
@@ -259,7 +259,7 @@ function rptHeader(tipo: string, subtitulo: string): string {
 </div>`;
 }
 
-function seccion(n: string | number, titulo: string): string {
+export function seccion(n: string | number, titulo: string): string {
   return `<div class="rpt-section-title"><span class="rpt-section-num">${n}</span><span class="rpt-section-label">${titulo}</span></div>`;
 }
 

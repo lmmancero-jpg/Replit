@@ -526,6 +526,12 @@
   margin: 3px 0 9px;
 }
 
+.report-content .rpt-notice-warn {
+  background: #fef9c3;
+  border-color: #fde047;
+  color: #713f12;
+}
+
 .report-content .rpt-notice-error {
   background: #fef2f2;
   border-color: #fca5a5;

@@ -1,4 +1,4 @@
-import { BarChart3, Settings, Zap } from "lucide-react";
+import { BarChart3, Settings, Zap, ReceiptText, DollarSign } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   Sidebar,
@@ -17,9 +17,11 @@ export function AppSidebar() {
   const [location] = useLocation();
 
   const navItems = [
-    { title: "Generador", url: "/", icon: Zap },
-    { title: "Métricas", url: "/metrics", icon: BarChart3, disabled: false },
-    { title: "Ajustes", url: "#", icon: Settings, disabled: true },
+    { title: "Generador",   url: "/",          icon: Zap,         disabled: false },
+    { title: "Facturas",    url: "/invoices",   icon: ReceiptText, disabled: false },
+    { title: "Facturación", url: "/billing",    icon: DollarSign,  disabled: false },
+    { title: "Métricas",    url: "/metrics",    icon: BarChart3,   disabled: false },
+    { title: "Ajustes",     url: "#",           icon: Settings,    disabled: true },
   ];
 
   return (
@@ -43,7 +45,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs font-semibold tracking-wider font-display px-6 py-2">
-            INFORMES
+            MÓDULOS
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="px-3">

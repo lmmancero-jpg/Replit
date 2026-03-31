@@ -1,0 +1,626 @@
+Necesito modificar la app existente sin rehacerla desde cero. Trabaja sobre el proyecto actual y conserva el diseño general, el estilo visual, la arquitectura React + Express + Drizzle + PostgreSQL, la exportación PDF existente y la lógica actual de Métricas. Quiero implementar correctamente la separación entre Generador, Facturas y Facturación.
+
+CONTEXTO REAL DEL PROYECTO ACTUAL
+- La app hoy tiene las rutas "/" y "/metrics".
+- El menú lateral actual está en client/src/components/app-sidebar.tsx.
+- Generador está en client/src/pages/generator.tsx.
+- El informe de facturación actual se genera en client/src/lib/reportEngine.ts mediante generarInformeFacturacion(...).
+- Los costos variables contractuales actuales están en COSTOS_VARIABLES dentro de reportEngine.ts.
+- El margen variable ya existe hoy y debe conservarse exactamente igual.
+- La persistencia actual solo cubre la tabla reports.
+- Debes trabajar sobre esta base real del proyecto, no inventar otra arquitectura.
+
+OBJETIVO DE ESTA FASE
+1. Eliminar el botón "Informe facturación" del módulo Generador.
+2. Dejar en Generador únicamente:
+   - Informe diario
+   - Informe mensual
+3. Crear un módulo nuevo "Facturas".
+4. Crear un módulo nuevo "Facturación".
+5. Mantener Métricas sin cambios.
+6. Mantener la indisponibilidad dentro de Generador para el cálculo del costo fijo.
+7. Usar Facturas como origen de los costos reales del período.
+8. Generar dos informes en Facturación:
+   - Informe de facturación para clientes
+   - Informe de facturación real
+
+REGLAS CRÍTICAS
+- No reescribas la app completa.
+- No cambies el funcionamiento de Métricas.
+- No elimines fileStore; reutilízalo.
+- Mantén TypeScript estricto.
+- No dejes imports muertos.
+- No rompas build ni npm run check.
+- Conserva la exportación PDF actual y adáptala.
+- Reutiliza el parser actual del Excel de producción; no lo dupliques.
+- Mantén el estilo corporativo actual de los reportes.
+- Todo costo variable debe manejarse en USD/kWh.
+
+REGLA FUNDAMENTAL DE COSTOS VARIABLES
+Los costos variables siempre son en USD/kWh.
+
+Para cualquier rubro real:
+CV_rubro_real_usd_kwh = total_facturado_rubro_usd / produccion_total_periodo_kwh
+
+Si la producción del período es 0:
+- no dividir por cero
+- usar 0
+- mostrar advertencia visible
+
+REGLA FUNDAMENTAL DEL MARGEN VARIABLE
+Existe un rubro "margen variable" en USD/kWh que ya está en la lógica actual y debe mantenerse EXACTAMENTE como está hoy.
+
+Reglas:
+1. No se recalcula.
+2. No se obtiene de facturas.
+3. No se elimina.
+4. No se duplica.
+5. Se mantiene en:
+   - informe de facturación para clientes
+   - informe de facturación real
+
+Ese margen variable debe seguir saliendo del valor contractual actual existente en reportEngine.ts, salvo que extraigas la constante a billingEngine.ts para reutilizarla.
+
+========================================
+CAMBIO 1: MENÚ LATERAL
+========================================
+
+Modificar client/src/components/app-sidebar.tsx
+
+Nuevo menú:
+- Generador -> "/"
+- Facturas -> "/invoices"
+- Facturación -> "/billing"
+- Métricas -> "/metrics"
+- Ajustes -> disabled
+
+Mantener el estilo actual del sidebar.
+
+========================================
+CAMBIO 2: RUTAS
+========================================
+
+Modificar client/src/App.tsx
+
+Rutas nuevas:
+- "/" -> Generator
+- "/invoices" -> InvoicesPage
+- "/billing" -> BillingPage
+- "/metrics" -> Metrics
+- fallback -> NotFound
+
+Crear imports necesarios.
+
+========================================
+CAMBIO 3: GENERADOR
+========================================
+
+Modificar client/src/pages/generator.tsx
+
+REQUERIMIENTOS
+- Eliminar completamente el botón/card/opción "Informe facturación".
+- Dejar solo:
+  - Informe diario
+  - Informe mensual
+
+MANTENER
+- reportDate
+- reportMonth
+- u1Downtime
+- u2Downtime
+- carga de archivo de producción
+- carga de archivo de aforo
+- observaciones
+- previsualización
+- exportación PDF
+- lógica de informe diario
+- lógica de informe mensual
+
+ELIMINAR DEL FORMULARIO Y DEL SCHEMA
+- costoCombTransporte
+- hfoPriceP1
+- hfoPriceP2
+- dieselPriceP1
+- dieselPriceP2
+- cualquier referencia a generación de informe de facturación desde Generator
+
+AJUSTAR EL ZOD SCHEMA
+Eliminar del generatorSchema:
+- costoCombTransporte
+- hfoPriceP1
+- hfoPriceP2
+- dieselPriceP1
+- dieselPriceP2
+
+AJUSTAR handleGenerate
+Debe aceptar únicamente:
+- "diario"
+- "mensual"
+
+IMPORTANTE
+La indisponibilidad U1/U2 sigue capturándose aquí y después debe reutilizarse en Facturación para calcular costo fijo.
+
+========================================
+CAMBIO 4: NUEVA TABLA invoices
+========================================
+
+Modificar shared/schema.ts
+
+Mantener la tabla reports actual.
+
+Agregar nueva tabla invoices:
+- id serial primary key
+- period text not null          // formato yyyy-MM
+- issueDate text not null
+- supplier text not null
+- invoiceNumber text not null
+- category text not null
+- description text not null default ''
+- subtotal text or numeric not null default 0
+- iva text or numeric not null default 0
+- total text or numeric not null default 0
+- observations text default ''
+- createdAt timestamp defaultNow()
+
+Agregar restricción lógica única por:
+- period
+- supplier
+- invoiceNumber
+
+Crear insertInvoiceSchema con drizzle-zod.
+
+Mantener insertReportSchema y report types existentes.
+Ampliar reportType para permitir también:
+- facturacion_clientes
+- facturacion_real
+
+========================================
+CAMBIO 5: API Y STORAGE PARA FACTURAS
+========================================
+
+Modificar:
+- server/storage.ts
+- server/routes.ts
+- shared/routes.ts
+
+Extender IStorage y DatabaseStorage para soportar:
+- getInvoices(period?: string)
+- getInvoice(id: number)
+- createInvoice(invoice)
+- updateInvoice(id, invoice)
+- deleteInvoice(id)
+- getInvoiceSummary(period: string)
+
+Endpoints REST a crear:
+- GET /api/invoices?period=YYYY-MM
+- POST /api/invoices
+- PUT /api/invoices/:id
+- DELETE /api/invoices/:id
+- GET /api/invoices/summary?period=YYYY-MM
+
+Reglas del summary:
+Debe devolver por período:
+- total por rubro en USD
+- total general en USD
+- si existe producción cargada, permitir cálculo posterior de USD/kWh en frontend
+- el API no debe romper si no hay producción
+
+Validar con zod.
+
+========================================
+CAMBIO 6: NUEVA PÁGINA FACTURAS
+========================================
+
+Crear client/src/pages/invoices.tsx
+
+La página debe tener estas secciones:
+
+SECCIÓN A. Selector de período
+- input tipo month
+- botón cargar
+- al cambiar el período, refrescar listado y resumen
+
+SECCIÓN B. Formulario de factura
+Campos:
+- period
+- issueDate
+- supplier
+- invoiceNumber
+- category
+- description
+- subtotal
+- iva
+- total
+- observations
+
+Rubros exactos de category:
+- combustible_transporte
+- lubricantes_quimicos
+- agua_insumos
+- repuestos_predictivo
+- impacto_ambiental
+- servicios_auxiliares
+
+Mostrar etiquetas amigables:
+- Combustible + Transporte
+- Lubricantes + Químicos
+- Agua + Insumos
+- Repuestos Mantenimiento Predictivo
+- Impacto Ambiental
+- Servicios Auxiliares
+
+Validaciones:
+- no permitir guardar si falta period
+- no permitir guardar si falta supplier
+- no permitir guardar si falta invoiceNumber
+- no permitir guardar si falta category
+- no permitir guardar si total <= 0
+- mostrar mensajes toast claros
+
+SECCIÓN C. Tabla del período
+Columnas:
+- Fecha
+- Proveedor
+- Número
+- Rubro
+- Descripción
+- Subtotal
+- IVA
+- Total
+- Observaciones
+- Acciones
+
+Debe permitir:
+- editar
+- eliminar
+- ordenar por fecha y rubro
+- mostrar total del período
+
+SECCIÓN D. Resumen mensual de facturas
+Mostrar por rubro:
+- Rubro
+- Total facturado USD
+- CV real USD/kWh
+
+Fórmula:
+CV_rubro_real_usd_kwh = total_facturado_rubro_usd / produccion_total_periodo_kwh
+
+La producción del período debe obtenerse desde el archivo cargado en Generador mediante fileStore y helpers reutilizables del motor actual.
+
+Si no hay producción cargada:
+- permitir registrar facturas
+- mostrar advertencia visible
+- no romper la pantalla
+- mostrar CV como 0 o “sin producción cargada”
+
+SECCIÓN E. Exportaciones
+Botones:
+- Exportar Excel
+- Exportar PDF
+
+Excel:
+- hoja “Facturas”
+- hoja “Resumen”
+- archivo: Facturas_YYYY-MM.xlsx
+
+PDF:
+- título “Registro de facturas del período YYYY-MM”
+- tabla completa
+- resumen por rubro
+- estilo corporativo actual
+- A4 vertical
+- evitar romper filas
+- usar /api/export/pdf
+
+========================================
+CAMBIO 7: NUEVO HOOK use-invoices
+========================================
+
+Crear client/src/hooks/use-invoices.ts
+
+Debe encapsular:
+- listado por período
+- crear
+- actualizar
+- eliminar
+- obtener resumen
+
+Usar React Query y queryClient actual.
+
+========================================
+CAMBIO 8: NUEVO MOTOR billingEngine.ts
+========================================
+
+Crear client/src/lib/billingEngine.ts
+
+NO duplicar el parser actual del Excel. Reutilizar lógica existente de reportEngine.ts y extraer helpers comunes.
+
+Necesito helpers como:
+
+- getMonthlyProductionSummary(prodBuffer, period)
+  Debe devolver al menos:
+  - totalKwh
+  - lanecKwh
+  - gracaKwh
+  - auxKwh
+  - totalFacturableKwh si aplica
+  - ultimoDiaDisponible
+
+- getClientEnergyBreakdown(prodBuffer, period)
+  Debe devolver:
+  - lanecKwh
+  - gracaKwh
+  - auxLanecKwh
+  - auxGracaKwh
+  - lanecFacturableKwh
+  - gracaFacturableKwh
+
+- getInvoiceCategorySummary(invoices, productionKwh, contractualVariableCosts)
+  Debe devolver:
+  - total USD por rubro
+  - CV real USD/kWh por rubro
+  - total real USD
+  - CV total real USD/kWh
+
+- getContractualVariableCosts(currentCombustibleCv?: number)
+  Debe devolver la estructura contractual actual:
+  - combustible_transporte
+  - lubricantes_quimicos
+  - agua_insumos
+  - repuestos_predictivo
+  - impacto_ambiental
+  - servicios_auxiliares
+  - margen_variable
+
+Reutilizar el valor actual del margen variable = 0.0138 o el valor real existente en la constante actual del proyecto.
+
+- buildClientBillingModel(...)
+- buildRealBillingModel(...)
+
+========================================
+CAMBIO 9: FACTURACIÓN
+========================================
+
+Crear client/src/pages/billing.tsx
+
+Debe tener:
+- selector de período
+- estado de disponibilidad de datos
+- tabs o botones:
+  - Informe clientes
+  - Informe real
+- panel preview HTML
+- botones:
+  - Previsualizar
+  - Exportar PDF
+  - Guardar reporte
+
+Debe leer:
+- producción mensual desde fileStore + helpers
+- indisponibilidad U1/U2 desde el estado actual de Generador si ya se comparte, o desde persistencia liviana/local storage si hace falta
+- facturas del período desde API invoices
+
+IMPORTANTE
+No obligues al usuario a volver a subir el archivo en Facturación.
+La lectura debe apoyarse en fileStore.
+
+========================================
+INFORME 1: FACTURACIÓN PARA CLIENTES
+========================================
+
+Este informe debe conservar la estructura actual del informe de facturación existente en reportEngine.ts.
+
+No inventes una estructura contractual nueva.
+Usa la estructura visual y lógica actual como base.
+
+REGLA CONTRACTUAL
+Todos los costos variables del informe clientes son contractuales y fijos, excepto:
+- combustible_transporte
+
+El combustible se debe recalcular así:
+CV_combustible_ajustado_usd_kwh =
+total_facturas_combustible_transporte_del_periodo / produccion_total_periodo_kwh
+
+Si producción = 0:
+- usar 0
+- mostrar advertencia
+- no romper
+
+Todos los demás rubros permanecen como están hoy:
+- lubricantes_quimicos contractual
+- agua_insumos contractual
+- repuestos_predictivo contractual
+- impacto_ambiental contractual
+- servicios_auxiliares contractual
+- margen_variable contractual
+
+FÓRMULA DEL INFORME CLIENTES
+CV_total_clientes_usd_kwh =
+CV_combustible_ajustado_usd_kwh
++ CV_lubricantes_quimicos_contractual
++ CV_agua_insumos_contractual
++ CV_repuestos_predictivo_contractual
++ CV_impacto_ambiental_contractual
++ CV_servicios_auxiliares_contractual
++ margen_variable_contractual
+
+Mantener la lógica actual de:
+- energía facturable LANEC
+- energía facturable GRACA
+- auxiliares asignados
+- costo fijo por disponibilidad
+- CBMT
+- reparto por factor contrato
+- precio final por cliente
+
+El HTML del informe clientes debe parecerse al informe actual, solo cambiando la fuente del combustible.
+
+Guardar reportes con:
+type = facturacion_clientes
+
+========================================
+INFORME 2: FACTURACIÓN REAL
+========================================
+
+Este informe es interno/gerencial.
+
+Debe usar todos los rubros facturados del período convertidos a USD/kWh y además incluir el margen variable fijo actual.
+
+Para cada rubro:
+CV_rubro_real_usd_kwh = total_facturado_rubro_usd / produccion_total_periodo_kwh
+
+Rubros a considerar:
+- combustible_transporte
+- lubricantes_quimicos
+- agua_insumos
+- repuestos_predictivo
+- impacto_ambiental
+- servicios_auxiliares
+
+Además sumar:
+- margen_variable contractual fijo en USD/kWh
+
+FÓRMULA:
+CV_total_real_usd_kwh =
+CV_combustible_real_usd_kwh
++ CV_lubricantes_quimicos_real_usd_kwh
++ CV_agua_insumos_real_usd_kwh
++ CV_repuestos_predictivo_real_usd_kwh
++ CV_impacto_ambiental_real_usd_kwh
++ CV_servicios_auxiliares_real_usd_kwh
++ margen_variable_contractual_usd_kwh
+
+Costo variable real total en USD:
+costo_variable_real_total_usd =
+total_combustible_transporte
++ total_lubricantes_quimicos
++ total_agua_insumos
++ total_repuestos_predictivo
++ total_impacto_ambiental
++ total_servicios_auxiliares
++ (margen_variable_contractual_usd_kwh * produccion_total_periodo_kwh)
+
+Costo real total USD:
+costo_real_total_usd =
+costo_variable_real_total_usd
++ costo_fijo_total_usd
+
+Costo real total USD/kWh:
+costo_real_total_usd_kwh =
+costo_real_total_usd / produccion_total_periodo_kwh
+
+Mostrar en el informe real:
+1. Resumen de producción del período
+2. Producción por cliente
+3. Facturas por rubro en USD
+4. CV real por rubro en USD/kWh
+5. Margen variable
+6. CV total real
+7. Costos fijos
+8. Costo real total USD
+9. Costo real total USD/kWh
+
+El margen variable debe aparecer explícitamente en el desglose.
+
+Guardar reportes con:
+type = facturacion_real
+
+========================================
+CAMBIO 10: REFACCIÓN DE reportEngine.ts
+========================================
+
+Modificar client/src/lib/reportEngine.ts
+
+Objetivo:
+- mantener generarInformeDiario(...)
+- mantener generarInformeMensual(...)
+- retirar de Generator la dependencia de generarInformeFacturacion(...)
+- si hace falta, dejar funciones helper reutilizables extraídas hacia billingEngine.ts
+
+Importante:
+- no romper lo actual
+- no dejar lógica duplicada
+- reutilizar CONFIG, utilidades y parsing existente
+
+========================================
+CAMBIO 11: EXPORTACIÓN PDF
+========================================
+
+Reutilizar /api/export/pdf para:
+- registro de facturas
+- informe clientes
+- informe real
+
+Mantener:
+- A4 vertical
+- estilo corporativo
+- tablas legibles
+- evitar cortes de fila
+- preview HTML antes de exportar
+
+========================================
+CAMBIO 12: GUARDADO DE REPORTES
+========================================
+
+Mantener tabla reports.
+
+Debe permitirse guardar:
+- informe clientes como facturacion_clientes
+- informe real como facturacion_real
+
+No romper historial existente.
+
+========================================
+DETALLES DE UX
+========================================
+
+- Mostrar montos en formato es-EC.
+- Mostrar USD/kWh con 4 decimales.
+- Mostrar advertencias claras si falta producción.
+- Mostrar advertencias claras si no hay facturas del período.
+- Permitir entrar a Facturación aunque no haya facturas; usar ceros y advertencia.
+- Mantener estilo consistente con la app actual.
+- Mantener sidebar y layout actuales.
+
+========================================
+ARCHIVOS A MODIFICAR
+========================================
+
+Modificar:
+- client/src/components/app-sidebar.tsx
+- client/src/App.tsx
+- client/src/pages/generator.tsx
+- client/src/lib/reportEngine.ts
+- shared/schema.ts
+- shared/routes.ts
+- server/storage.ts
+- server/routes.ts
+
+Crear:
+- client/src/pages/invoices.tsx
+- client/src/pages/billing.tsx
+- client/src/hooks/use-invoices.ts
+- client/src/lib/billingEngine.ts
+- client/src/lib/invoiceExcel.ts
+
+Si necesitas componentes auxiliares, créalos en client/src/components.
+
+========================================
+VERIFICACIONES FINALES OBLIGATORIAS
+========================================
+
+Al terminar:
+1. npm run check sin errores
+2. Generador muestra solo informe diario e informe mensual
+3. Métricas funciona igual
+4. Facturas permite crear, editar, eliminar y listar por período
+5. Facturas exporta Excel y PDF
+6. Facturación genera:
+   - informe clientes
+   - informe real
+7. Ambos informes exportan PDF
+8. Ambos informes se pueden guardar en reports
+9. No dejes imports sin usar
+10. No dejes código muerto
+11. No dupliques el parser del Excel
+12. Conserva el margen variable exactamente como hoy en ambos informes
