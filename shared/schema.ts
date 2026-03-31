@@ -51,6 +51,7 @@ export const invoices = pgTable("invoices", {
   subtotal: numeric("subtotal").notNull().default("0"),
   iva: numeric("iva").notNull().default("0"),
   total: numeric("total").notNull().default("0"),
+  lineItems: text("line_items").default("[]"),
   observations: text("observations").default(""),
   createdAt: timestamp("created_at").defaultNow(),
 });
